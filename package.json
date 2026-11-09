@@ -1,0 +1,14 @@
+{
+  "name": "zerothsec-recruit",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "description": "ZEROTHSEC 网络安全工作室 2026 招新网站（静态多页站点）",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0",
+    "preview": "vite preview --host 0.0.0.0"
+  },
+  "devDependencies": {
+    "vite": "^7.0.0"
+  }
+}

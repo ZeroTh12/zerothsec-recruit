@@ -1,0 +1,29 @@
+# 依赖目录
+node_modules/
+
+# 构建产物
+dist/
+build/
+
+# Vite 与 TypeScript 缓存
+.vite/
+node_modules/.tmp/
+*.tsbuildinfo
+
+# 本地环境变量
+.env
+.env.*
+!.env.example
+
+# 日志文件
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# 编辑器与系统文件
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

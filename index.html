@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-page="00" data-label="首页 / HOME">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <meta name="theme-color" content="#070907">
+  <title>ZEROTHSEC · 网络安全工作室 | 江工职院 2026 招新</title>
+  <meta name="description" content="江工职院网络安全工作室 2026 秋季招新。四个攻防方向、校内靶场、CTF 闯关，等待愿意深挖的人。">
+  <meta property="og:title" content="ZEROTHSEC · 网络安全工作室 2026 招新">
+  <meta property="og:description" content="在 0 与 1 的缝隙里，守住真实世界。">
+  <meta property="og:type" content="website">
+  <link rel="icon" href="assets/img/favicon.png" type="image/png" sizes="64x64">
+  <link rel="stylesheet" href="assets/css/main.css?v=20261105">
+  <link rel="stylesheet" href="assets/css/motion.css?v=20261105">
+  <script>
+    document.documentElement.classList.add('js', 'motion-pending');
+    setTimeout(function () {
+      var d = document.documentElement;
+      if (!d.classList.contains('is-entered')) {
+        d.classList.add('is-entered');
+        d.classList.remove('motion-pending', 'phase-arriving', 'phase-out');
+        window.dispatchEvent(new Event('zerothsec:entered'));
+      }
+    }, 2600);
+  </script>
+</head>
+<body>
+  <a class="skip-link" href="#main">跳转到主要内容</a>
+  <div class="cursor-dot" aria-hidden="true"></div>
+
+  <header class="site-header">
+    <div class="wrap header-inner">
+      <a class="brand" href="index.html" aria-label="ZEROTHSEC 首页">
+        <span class="brand-mark">
+          <img src="assets/img/rjb-logo.png" alt="工作室徽标" width="46" height="46">
+        </span>
+        <span class="brand-text">
+          <span class="brand-name">ZEROTHSEC</span>
+          <span class="brand-sub">江工职院 · 网络安全工作室</span>
+        </span>
+      </a>
+
+      <nav class="site-nav" aria-label="主导航">
+        <a href="index.html" aria-current="page"><span>00</span>首页</a>
+        <a href="major.html"><span>01</span>专业</a>
+        <a href="recruit.html"><span>02</span>招新</a>
+        <a href="ctf.html"><span>03</span>CTF</a>
+      </nav>
+
+      <div class="head-actions">
+        <span class="status"><i class="status-dot"></i>STATUS: ONLINE</span>
+        <a class="btn btn-small" href="recruit.html">申请加入<span class="btn-arrow">↗</span></a>
+        <button class="nav-toggle" type="button" aria-label="打开菜单" aria-expanded="false">
+          <span></span><span></span><span></span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <div class="mobile-nav" aria-hidden="true">
+    <nav aria-label="移动端导航">
+      <a href="index.html"><span>00</span>首页</a>
+      <a href="major.html"><span>01</span>专业档案</a>
+      <a href="recruit.html"><span>02</span>招新令</a>
+      <a href="ctf.html"><span>03</span>攻防演练</a>
+    </nav>
+    <div class="mobile-nav-foot">
+      <span>ZEROTHSEC — JGZY<br>RECRUITMENT 2026</span>
+      <span>STATUS: ONLINE<br>南昌</span>
+    </div>
+  </div>
+
+  <main id="main">
+    <!-- HERO -->
+    <section class="hero">
+      <div class="wrap hero-grid">
+        <aside class="hero-rail" aria-hidden="true">
+          <span class="rail-index">0x00</span>
+          <span class="rail-vertical">RECRUITMENT 2026</span>
+          <span class="rail-line"></span>
+          <span class="rail-coord">N 28°41′ / E 115°53′</span>
+        </aside>
+
+        <div class="hero-main">
+          <p class="hero-eyebrow">
+            <span class="tag">RECRUITMENT OPEN</span>
+            <span>2026 秋季招新 · 通道已开启</span>
+          </p>
+
+          <h1 class="hero-title">
+            <span class="line"><span>在 0 与 1 的</span></span>
+            <span class="line indent"><span>缝隙里，</span></span>
+            <span class="line"><span>守住<span class="accent">真实世界</span>。</span></span>
+          </h1>
+
+          <p class="hero-desc">
+            江工职院网络安全工作室，面向全校招募新一代攻防者。
+            我们不教你怎么“黑”，只教你怎么在真实的对抗中，<strong>守住该守的东西</strong>。
+          </p>
+
+          <div class="hero-actions">
+            <a class="btn btn-primary" href="recruit.html">提交加入申请<span class="btn-arrow">→</span></a>
+            <a class="btn" href="ctf.html">先闯一关 CTF<span class="btn-arrow">↗</span></a>
+          </div>
+
+          <div class="hero-note">
+            <span>报名截止 <b>11.13 23:59</b></span>
+            <span>不限专业 · 不限年级</span>
+            <span><b>0</b> 基础可参与</span>
+          </div>
+        </div>
+
+        <figure class="signal-figure" data-reveal style="--d:.25s">
+          <div class="signal-panel">
+            <canvas class="signal-canvas" id="signal" width="840" height="1050" aria-label="抽象的网络流量观测画面"></canvas>
+            <span class="corner tl"></span><span class="corner tr"></span>
+            <span class="corner bl"></span><span class="corner br"></span>
+            <div class="signal-hud top">
+              <span>LIVE TRACE / 0x7F</span>
+              <span class="live">● SECURE</span>
+            </div>
+            <div class="signal-hud bottom">
+              <span>PKT/S 1,024</span>
+              <span>DROP 0.00%</span>
+            </div>
+          </div>
+          <figcaption class="signal-caption">
+            <span>FIG.01 — 校园网络实时流量观测</span>
+            <b>NO UNAUTHORIZED ACCESS</b>
+          </figcaption>
+        </figure>
+      </div>
+
+      <div class="ticker" aria-hidden="true">
+        <div class="ticker-track">
+          <span>TRUST NOTHING</span><em>/</em>
+          <span>VERIFY EVERYTHING</span><em>/</em>
+          <span>READ THE SOURCE</span><em>/</em>
+          <span>STAY CURIOUS</span><em>/</em>
+          <span>BREAK IT, THEN FIX IT</span><em>/</em>
+          <span>NO UNAUTHORIZED ACCESS</span><em>/</em>
+          <span>TRUST NOTHING</span><em>/</em>
+          <span>VERIFY EVERYTHING</span><em>/</em>
+          <span>READ THE SOURCE</span><em>/</em>
+          <span>STAY CURIOUS</span><em>/</em>
+          <span>BREAK IT, THEN FIX IT</span><em>/</em>
+          <span>NO UNAUTHORIZED ACCESS</span><em>/</em>
+        </div>
+      </div>
+    </section>
+
+    <!-- 01 / STUDIO -->
+    <section class="section studio" id="studio">
+      <div class="wrap section-grid">
+        <aside class="section-aside" data-reveal>
+          <span class="sec-index">01</span>
+          <span class="sec-label"><b>ORIGIN</b>关于工作室</span>
+        </aside>
+
+        <div data-reveal>
+          <span class="label">THE STUDIO</span>
+          <h2 class="section-title" style="margin-top:20px;">
+            不是兴趣小组的另一个名字，<br>是一支常驻的攻防小队。
+          </h2>
+          <p class="section-lead">
+            我们把“安全”当成一门需要反复练习的手艺，而不是一句挂在墙上的口号。
+          </p>
+
+          <div class="studio-body">
+            <div class="studio-copy">
+              <p class="studio-lede">
+                一间没有门禁的机房，和一群<em>不肯放过细节</em>的人。
+              </p>
+              <p>
+                江工职院网络安全工作室，依托学院网络空间安全实训资源，面向全校对网络与安全感兴趣的同学开放。这里没有“大佬崇拜”，只有一群愿意把问题拆开、把原理讲清、把坑记录下来的同行者。
+              </p>
+              <p>
+                每周固定的技术夜谈、校内靶场维护、CTF 赛题复现与竞赛组队，是你在这里最常做的四件事。你会从看懂一个 HTTP 请求开始，慢慢走到能独立完成一次完整的漏洞复现。
+              </p>
+              <p>
+                <b>我们更在意你是否愿意深挖，而不是你现在会多少。</b>
+              </p>
+            </div>
+
+            <div>
+              <div class="principles-title"><span>HOUSE RULES</span><span>04</span></div>
+              <ol class="principles">
+                <li><span>01</span><div><b>先读文档，再动手。</b>任何结论都要有依据。</div></li>
+                <li><span>02</span><div><b>先复现，再下判断。</b>一次成功不代表稳定。</div></li>
+                <li><span>03</span><div><b>不做无授权的测试。</b>技术有边界，好奇也有。</div></li>
+                <li><span>04</span><div><b>把失败写进笔记。</b>下一次你会感谢它。</div></li>
+              </ol>
+              <p class="note-line" style="margin-top:18px;">
+                完整工作室铁律见 <a href="recruit.html#rules">招新页 · 02 铁律</a>：不考勤 · 每周一次记录 · 红线别碰。
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 02 / TRACKS -->
+    <section class="section" id="tracks">
+      <div class="wrap">
+        <div class="tracks-head">
+          <aside class="section-aside" data-reveal>
+            <span class="sec-index">02</span>
+            <span class="sec-label"><b>CAPABILITIES</b>四条战线</span>
+          </aside>
+          <div data-reveal>
+            <span class="label">CHOOSE A FRONTIER</span>
+            <h2 class="section-title" style="margin-top:20px;">四条战线，<br>选一条先钻进去。</h2>
+            <p class="section-lead">
+              方向不是限制，是入口。你可以随时迁移，也可以在交叉处找到属于自己的问题。
+            </p>
+          </div>
+        </div>
+
+        <div class="track-list" data-reveal>
+          <a class="track" href="major.html#web">
+            <span class="track-num">T.01</span>
+            <span class="track-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4">
+                <rect x="3" y="4" width="18" height="15"></rect>
+                <line x1="3" y1="8" x2="21" y2="8"></line>
+                <path d="M9 11.5L7 14l2 2.5M15 11.5l2 2.5-2 2.5"></path>
+              </svg>
+            </span>
+            <span class="track-name">Web 安全 <small>WEB EXPLOITATION</small></span>
+            <span class="track-desc">从请求与响应出发，理解浏览器、服务器与信任边界之间的缝隙。</span>
+            <span class="track-tags">SQLi / XSS / SSRF / 反序列化</span>
+            <span class="track-arrow">↗</span>
+          </a>
+
+          <a class="track" href="major.html#reverse">
+            <span class="track-num">T.02</span>
+            <span class="track-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4">
+                <rect x="6" y="6" width="12" height="12"></rect>
+                <rect x="9" y="9" width="6" height="6"></rect>
+                <path d="M9 3v3M15 3v3M9 18v3M15 18v3M3 9h3M3 15h3M18 9h3M18 15h3"></path>
+              </svg>
+            </span>
+            <span class="track-name">逆向与 Pwn <small>REVERSE &amp; BINARY</small></span>
+            <span class="track-desc">把编译后的黑盒拆回逻辑，寻找程序在内存里露出的破绽。</span>
+            <span class="track-tags">IDA / Ghidra / 栈溢出 / ROP</span>
+            <span class="track-arrow">↗</span>
+          </a>
+
+          <a class="track" href="major.html#forensics">
+            <span class="track-num">T.03</span>
+            <span class="track-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4">
+                <circle cx="10" cy="10" r="6"></circle>
+                <path d="M14.5 14.5L20 20"></path>
+                <path d="M7 8.5h6M7 11.5h4"></path>
+              </svg>
+            </span>
+            <span class="track-name">数字取证 <small>DIGITAL FORENSICS</small></span>
+            <span class="track-desc">从流量、日志与内存镜像里，还原已经发生过的那件事。</span>
+            <span class="track-tags">Wireshark / 内存取证 / 日志溯源</span>
+            <span class="track-arrow">↗</span>
+          </a>
+
+          <a class="track" href="major.html#defense">
+            <span class="track-num">T.04</span>
+            <span class="track-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4">
+                <path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6l7-3z"></path>
+                <path d="M8.5 12l2.5 2.5 4.5-5"></path>
+              </svg>
+            </span>
+            <span class="track-name">防守与运营 <small>BLUE TEAM OPS</small></span>
+            <span class="track-desc">在攻击发生之前，把日志、资产与响应流程先准备好。</span>
+            <span class="track-tags">应急响应 / 日志审计 / 靶场建设</span>
+            <span class="track-arrow">↗</span>
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <!-- RANGE TEASER -->
+    <section class="range-teaser">
+      <div class="wrap range-teaser-inner" data-reveal>
+        <div class="range-teaser-copy">
+          <span class="kicker">CTF / RANGE ONLINE</span>
+          <h2>靶场已开放。<br><span>22 道题，等你来拿 flag。</span></h2>
+          <p>不用等加入工作室。22 道新手动态题，覆盖密码学、Web 与 MISC；每轮随机抽 4 道，flag 每人唯一。</p>
+        </div>
+        <div class="range-teaser-side">
+          <div class="range-readout">
+            <span>CHALLENGE BANK<b>22</b></span>
+            <span>DIFFICULTY<b>EASY → EASY+</b></span>
+            <span>STATUS<b class="acid">OPEN</b></span>
+          </div>
+          <a class="btn" href="ctf.html">进入攻防演练<span class="btn-arrow">↗</span></a>
+        </div>
+      </div>
+      <span class="range-watermark" aria-hidden="true">FLAG</span>
+    </section>
+
+    <!-- RECRUIT BAND -->
+    <section class="recruit-band">
+      <div class="wrap band-grid" data-reveal>
+        <div>
+          <span class="band-kicker">RECRUITMENT / 2026 FALL</span>
+          <h2 class="band-title">下一块拼图，<br>可能是你。</h2>
+        </div>
+        <div class="band-side">
+          <dl>
+            <div>
+              <dt>APPLICATION DEADLINE</dt>
+              <dd>2026.11.13 / 23:59</dd>
+            </div>
+            <div>
+              <dt>WHO CAN APPLY</dt>
+              <dd>全校在读学生 · 专业年级不限</dd>
+            </div>
+            <div>
+              <dt>ZERO-BASE POLICY</dt>
+              <dd>0 基础可投 · 提供基础训练</dd>
+            </div>
+          </dl>
+          <a class="btn btn-ink" href="recruit.html">查看招新流程<span class="btn-arrow">→</span></a>
+        </div>
+      </div>
+    </section>
+
+    <!-- TERMINAL -->
+    <section class="terminal">
+      <div class="wrap" data-reveal>
+        <div class="terminal-window">
+          <div class="terminal-bar">
+            <span class="terminal-dots"><i></i><i></i><i></i></span>
+            <span>zerothsec@jgzy:~/recruit — session 2026</span>
+            <span class="terminal-live">● LIVE</span>
+          </div>
+          <ol class="terminal-lines">
+            <li><span class="t-time">20:14:03</span><span class="t-cmd">init recruit_session --fall</span></li>
+            <li><span class="t-time">20:14:04</span><span>load ./tracks ... <span class="t-ok">4 found</span></span></li>
+            <li><span class="t-time">20:14:04</span><span>mount ./range ... <span class="t-ok">ok</span></span></li>
+            <li><span class="t-time">20:14:05</span><span>status: <span class="t-ok">accepting applications</span></span></li>
+            <li><span class="t-time">20:14:06</span><span>hint: <span class="t-warn">flag is closer than you think</span></span></li>
+            <li><span class="t-time">20:14:07</span><span>awaiting input <span class="t-warn">_</span></span></li>
+          </ol>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap">
+      <span class="footer-word" aria-hidden="true">ZEROTHSEC</span>
+      <div class="footer-grid">
+        <div class="footer-brand">
+          <div class="footer-title">ZEROTHSEC / 网络安全工作室</div>
+          <p>江工职院网络安全工作室。以攻防实践为轴，做长期主义的技术训练。</p>
+        </div>
+        <div>
+          <div class="footer-title">CONTACT</div>
+          <div class="footer-contact">
+            <a href="mailto:19170040127@189.cn">19170040127@189.cn</a>
+          </div>
+        </div>
+        <div>
+          <div class="footer-title">INDEX</div>
+          <div class="footer-links">
+            <a href="index.html">首页</a>
+            <a href="major.html">专业档案</a>
+            <a href="recruit.html">招新令</a>
+            <a href="ctf.html">攻防演练</a>
+            <a href="recruit.html#contact">联系我们</a>
+          </div>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <span>© <span data-year>2026</span> ZEROTHSEC · 江工职院</span>
+        <span>具体招新安排与数据以学院官方发布为准</span>
+        <span class="ok">TRUST NOTHING / VERIFY EVERYTHING</span>
+      </div>
+    </div>
+  </footer>
+
+  <script src="assets/js/at-bg.js?v=20261109"></script>
+  <script src="assets/js/motion.js?v=20261105"></script>
+  <script src="assets/js/main.js?v=20261105"></script>
+</body>
+</html>

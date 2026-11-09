@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-page="03" data-label="CTF / 攻防演练">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <meta name="theme-color" content="#070907">
+  <title>攻防演练 · 动态 CTF 靶场 | ZEROTHSEC 网络安全工作室</title>
+  <meta name="description" content="ZEROTHSEC 新手友好动态 CTF 靶场：以密码学入门为主，标注 Web / Crypto / Misc / Reverse / Pwn 五方向，每次打开重新拉题，flag 每人唯一，全部附带教程。">
+  <link rel="icon" href="assets/img/favicon.png" type="image/png" sizes="64x64">
+  <link rel="stylesheet" href="assets/css/main.css?v=20261105">
+  <link rel="stylesheet" href="assets/css/ctf.css?v=20261104">
+  <link rel="stylesheet" href="assets/css/challenges.css?v=20261104">
+  <link rel="stylesheet" href="assets/css/motion.css?v=20261105">
+  <script>
+    document.documentElement.classList.add('js', 'motion-pending');
+    setTimeout(function () {
+      var d = document.documentElement;
+      if (!d.classList.contains('is-entered')) {
+        d.classList.add('is-entered');
+        d.classList.remove('motion-pending', 'phase-arriving', 'phase-out');
+        window.dispatchEvent(new Event('zerothsec:entered'));
+      }
+    }, 2600);
+  </script>
+</head>
+<body>
+  <a class="skip-link" href="#main">跳转到主要内容</a>
+  <div class="cursor-dot" aria-hidden="true"></div>
+
+  <header class="site-header">
+    <div class="wrap header-inner">
+      <a class="brand" href="index.html" aria-label="ZEROTHSEC 首页">
+        <span class="brand-mark">
+          <img src="assets/img/rjb-logo.png" alt="工作室徽标" width="46" height="46">
+        </span>
+        <span class="brand-text">
+          <span class="brand-name">ZEROTHSEC</span>
+          <span class="brand-sub">江工职院 · 网络安全工作室</span>
+        </span>
+      </a>
+
+      <nav class="site-nav" aria-label="主导航">
+        <a href="index.html"><span>00</span>首页</a>
+        <a href="major.html"><span>01</span>专业</a>
+        <a href="recruit.html"><span>02</span>招新</a>
+        <a href="ctf.html" aria-current="page"><span>03</span>CTF</a>
+      </nav>
+
+      <div class="head-actions">
+        <span class="status"><i class="status-dot"></i>RANGE: LIVE</span>
+        <a class="btn btn-small" href="#assignment">查看题目<span class="btn-arrow">↗</span></a>
+        <button class="nav-toggle" type="button" aria-label="打开菜单" aria-expanded="false">
+          <span></span><span></span><span></span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <div class="mobile-nav" aria-hidden="true">
+    <nav aria-label="移动端导航">
+      <a href="index.html"><span>00</span>首页</a>
+      <a href="major.html"><span>01</span>专业档案</a>
+      <a href="recruit.html"><span>02</span>招新令</a>
+      <a href="ctf.html"><span>03</span>攻防演练</a>
+    </nav>
+    <div class="mobile-nav-foot">
+      <span>ZEROTHSEC — JGZY<br>RANGE 2026</span>
+      <span>STATUS: LIVE<br>LOCAL / STATIC</span>
+    </div>
+  </div>
+
+  <main id="main">
+    <!-- PAGE HERO -->
+    <section class="page-hero">
+      <div class="wrap page-hero-inner">
+        <div class="page-kicker">
+          <span class="file">FILE NO. 03 / CAPTURE THE FLAG</span>
+          <span>新手友好 · 每次打开重新拉题 · 每人独立 flag</span>
+        </div>
+        <h1 class="page-title">
+          靶场已开放，<br>
+          <span class="accent">从最简单的开始。</span>
+        </h1>
+        <p class="page-deck">
+          每轮 4 道实时任务，从 <strong>22 道题库</strong>中随机抽取，以<strong>密码学、Web 基础和 MISC 新手题</strong>为主，外加 Reverse 与 Pwn 的概念体验。
+          每题都配完整教程，学完教程就能独立完成；你的 flag 只属于你。
+        </p>
+        <div class="page-meta">
+          <span>CHALLENGE BANK 22</span>
+          <span>LIVE SLOTS 04</span>
+          <span>FLAG FORMAT flag{uuid}</span>
+          <span>BANK REMOTE + FALLBACK</span>
+          <span>ETHICS ON</span>
+        </div>
+        <span class="page-watermark" aria-hidden="true">03</span>
+      </div>
+    </section>
+
+    <!-- PIXEL GAME / only shown when this round includes it -->
+    <section class="content-section range-section" id="range" hidden>
+      <div class="wrap">
+        <div class="range-head">
+          <div>
+            <span class="kicker">MINI GAME / PIXEL BREACH</span>
+            <h2 class="range-title">像素潜行 <small>PIXEL BREACH</small></h2>
+          </div>
+          <div class="range-state">
+            <span>RANGE<b class="acid">LIVE</b></span>
+            <span>MODE<b>SOLO</b></span>
+            <span>DIFFICULTY<b>EASY+</b></span>
+          </div>
+        </div>
+
+        <p class="range-brief">
+          你是一枚误入旧机房的数据包。收集 <b>4 个数据碎片</b>，避开红色哨兵，找到出口端口。
+          被撞到会回到起点，但已收集的碎片会保留——所以，多试几次也没关系。
+        </p>
+
+        <div class="game-shell">
+          <div class="game-topbar">
+            <span class="tb-left"><i></i><i></i><i></i>root@range:~$ ./pixel_breach</span>
+            <span class="tb-right">LOCAL / 60 FPS <button class="tb-reset" id="game-restart" type="button">RESET</button></span>
+          </div>
+
+          <div class="game-hud">
+            <div class="hud-cell">
+              <span>PACKETS</span>
+              <b><i id="frag-count">0</i> / 4</b>
+            </div>
+            <div class="hud-cell">
+              <span>TIME</span>
+              <b id="game-timer">00:00</b>
+            </div>
+            <div class="hud-cell">
+              <span>TRACES</span>
+              <b id="trace-count">0</b>
+            </div>
+            <div class="hud-cell">
+              <span>STATUS</span>
+              <b id="game-status">IDLE</b>
+            </div>
+          </div>
+
+          <div class="screen-wrap">
+            <canvas id="game" width="544" height="352"
+              aria-label="像素闯关游戏区域：控制绿色数据包，收集四个蓝色碎片，避开红色哨兵，抵达黄色出口"></canvas>
+            <div class="screen-overlay" id="game-overlay">
+              <span class="ov-kicker">PIXEL BREACH / v0.1</span>
+              <h3 id="overlay-title">收集 4 个数据包<br>抵达出口端口</h3>
+              <p id="overlay-body">方向键 / WASD 移动。红色哨兵会按固定路线巡逻。</p>
+              <div class="overlay-actions">
+                <button class="btn btn-primary" id="game-start" type="button">开始运行<span class="btn-arrow">▶</span></button>
+                <button class="btn" id="game-reset" type="button">重置</button>
+                <button class="btn" id="game-vault" type="button" hidden>填入本关输入框<span class="btn-arrow">→</span></button>
+              </div>
+            </div>
+          </div>
+
+          <div class="game-footer">
+            <div class="dpad" aria-label="移动端方向控制">
+              <button type="button" data-dir="up" aria-label="向上移动">↑</button>
+              <button type="button" data-dir="left" aria-label="向左移动">←</button>
+              <button type="button" data-dir="down" aria-label="向下移动">↓</button>
+              <button type="button" data-dir="right" aria-label="向右移动">→</button>
+            </div>
+
+            <div class="game-legend">
+              <span><i class="lg-player"></i>YOU / 数据包</span>
+              <span><i class="lg-frag"></i>FRAGMENT</span>
+              <span><i class="lg-drone"></i>SENTINEL</span>
+              <span><i class="lg-exit"></i>EXIT</span>
+            </div>
+
+            <p class="game-tip">
+              提示：出口在所有碎片收集完成前是锁定的。先观察哨兵折返的节奏，再选择穿行时机。
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 01 / LIVE ASSIGNMENT -->
+    <section class="content-section" id="assignment">
+      <div class="wrap">
+        <div class="range-head" data-reveal>
+          <div>
+            <span class="kicker">RANGE / LIVE ASSIGNMENT</span>
+            <h2 class="range-title">本轮任务 <small>DYNAMIC SET</small></h2>
+          </div>
+          <div class="range-state">
+            <span>SESSION<b class="acid" id="sys-uid">—</b></span>
+            <span>ROUND<b id="sys-round">01</b></span>
+            <span>BANK<b id="sys-bank">—</b></span>
+          </div>
+        </div>
+
+        <p class="range-brief" data-reveal>
+          题目全部控制在<strong>新手难度</strong>，以密码学、Web 基础和 MISC 新手题为主。每次打开都会重新拉取题库，
+          并按你的浏览器会话签发独立 flag。解出任意一题后，下次打开时这道题会换成<b>另一种类型</b>的新题并重置。
+        </p>
+
+        <div class="dir-legend" data-reveal aria-label="CTF 五个方向">
+          <span data-dir="web">WEB</span>
+          <span data-dir="crypto">CRYPTO</span>
+          <span data-dir="misc">MISC</span>
+          <span data-dir="reverse">REVERSE</span>
+          <span data-dir="pwn">PWN</span>
+        </div>
+
+        <div class="assign-progress" data-reveal>
+          <span id="assign-count">0 / 4 SOLVED</span>
+          <div class="assign-bar" aria-hidden="true"><i id="assign-fill"></i></div>
+          <span id="assign-total">TOTAL 0</span>
+        </div>
+
+        <div class="challenge-stack" id="challenge-stack" aria-live="polite">
+          <div class="assign-loading">
+            <span class="loading-dot"></span>
+            正在连接题库并签发本轮 flag…
+          </div>
+        </div>
+
+        <p class="assign-foot" data-reveal>
+          每道题都附带完整教程。flag 只在本会话内有效，复制他人的 flag 不会通过校验。
+        </p>
+      </div>
+    </section>
+
+    <!-- 02 / TOOLS & ETHICS -->
+    <section class="content-section" id="tools">
+      <div class="wrap content-grid">
+        <aside class="content-aside" data-reveal>
+          <div class="idx">02</div>
+          <span class="tag">TOOLKIT / ETHICS</span>
+        </aside>
+        <div data-reveal>
+          <h2 class="content-title">
+            工具箱很小，边界要清楚
+            <small>FOUR TOOLS / ONE RULE</small>
+          </h2>
+
+          <div class="cert-grid">
+            <div class="cert-item">
+              <span class="cert-k">TOOL / 01</span>
+              <h4>浏览器开发者工具</h4>
+              <p>查看 DOM、网络请求、Console 与本地存储。前端题的第一现场，几乎所有题都从 F12 开始。</p>
+            </div>
+            <div class="cert-item">
+              <span class="cert-k">TOOL / 02</span>
+              <h4>curl</h4>
+              <p>命令行请求工具。适合查看响应头、保存页面、批量检查静态文件，也方便写进笔记。</p>
+            </div>
+            <div class="cert-item">
+              <span class="cert-k">TOOL / 03</span>
+              <h4>CyberChef</h4>
+              <p>浏览器里的“数据厨房”。编码、解码、哈希、提取，拖拽即可组合，适合新手理解转换过程。</p>
+            </div>
+            <div class="cert-item">
+              <span class="cert-k">TOOL / 04</span>
+              <h4>Burp Suite Community</h4>
+              <p>抓包与改包的基础工具。等你能独立完成本站题目后，再用它去练习有授权的靶场。</p>
+            </div>
+          </div>
+
+          <div class="ethics-note">
+            <span>ETHICS / 请先读这一条</span>
+            <p>
+              本站所有挑战仅存在于这个本地靶场服务，不涉及任何真实系统。
+              现实世界里，对未授权的系统进行扫描、爆破或渗透测试，可能触犯法律。
+              <b>先拿授权，再动手。</b>
+            </p>
+          </div>
+
+          <p class="note-line">通关之后，如果你还想继续练：去招新页报名，或者来宣讲会聊聊你想从哪个方向开始。</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap">
+      <span class="footer-word" aria-hidden="true">ZEROTHSEC</span>
+      <div class="footer-grid">
+        <div class="footer-brand">
+          <div class="footer-title">ZEROTHSEC / 网络安全工作室</div>
+          <p>江工职院网络安全工作室。以攻防实践为轴，做长期主义的技术训练。</p>
+        </div>
+        <div>
+          <div class="footer-title">CONTACT</div>
+          <div class="footer-contact">
+            <a href="mailto:19170040127@189.cn">19170040127@189.cn</a>
+          </div>
+        </div>
+        <div>
+          <div class="footer-title">INDEX</div>
+          <div class="footer-links">
+            <a href="index.html">首页</a>
+            <a href="major.html">专业档案</a>
+            <a href="recruit.html">招新令</a>
+            <a href="ctf.html">攻防演练</a>
+            <a href="recruit.html#contact">联系我们</a>
+          </div>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <span>© <span data-year>2026</span> ZEROTHSEC · 江工职院</span>
+        <span>所有靶场内容仅用于本站教学演示</span>
+        <span class="ok">TRUST NOTHING / VERIFY EVERYTHING</span>
+      </div>
+    </div>
+  </footer>
+
+  <script src="assets/js/at-bg.js?v=20261109"></script>
+  <script src="assets/js/pixel-game.js?v=20261104"></script>
+  <script src="assets/js/ctf.js?v=20261104b"></script>
+  <script src="assets/js/motion.js?v=20261105"></script>
+  <script src="assets/js/main.js?v=20261105"></script>
+</body>
+</html>

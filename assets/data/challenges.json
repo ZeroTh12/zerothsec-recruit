@@ -1,0 +1,434 @@
+{
+  "version": "2026.11-cryptofirst",
+  "updated": "2026-11-03",
+  "categories": {
+    "source": { "label": "前端源码", "tag": "SOURCE / DOM" },
+    "path": { "label": "路径与浏览器", "tag": "PATH / BROWSER" },
+    "decode": { "label": "密码学入门", "tag": "CRYPTO / DECODE" },
+    "interactive": { "label": "交互与概念", "tag": "INTERACTIVE / CONCEPT" }
+  },
+  "challenges": [
+    {
+      "id": "src-comment",
+      "category": "source",
+      "direction": "WEB",
+      "title": "注释里的低语",
+      "subtitle": "COMMENT WHISPER",
+      "difficulty": "EASY",
+      "brief": "flag 被写进了这一段 HTML 的注释里。它不会显示在页面上，但仍然完整地存在于 DOM 树里。",
+      "hint": "F12 打开 Elements（元素）面板，在搜索框里搜 flag{。",
+      "artifact": { "type": "comment" },
+      "tutorial": [
+        { "text": "在本关卡片里找到那一段伪代码。它旁边会插入一个不会显示的注释节点。", "code": "<!-- RANGE PROOF / flag{...} -->" },
+        { "text": "按 F12（或右键“检查”）打开开发者工具，切换到 Elements 面板。" },
+        { "text": "用 Ctrl+F 在 DOM 树里搜索 flag{，就能看到灰色的注释节点。" },
+        { "text": "知识点：HTML 注释不渲染，但会随页面进入 DOM。前端隐藏内容从来都不算秘密。" }
+      ]
+    },
+    {
+      "id": "src-attr",
+      "category": "source",
+      "direction": "WEB",
+      "title": "属性里的影子",
+      "subtitle": "DATA ATTRIBUTE",
+      "difficulty": "EASY",
+      "brief": "本关卡片的 data-* 属性里被写入了一段 range token。元素能看见，页面却不会显示。",
+      "hint": "在 Elements 里选中本关卡片，查看右侧的属性列表。",
+      "artifact": { "type": "attr", "name": "data-range-token" },
+      "tutorial": [
+        { "text": "按 F12 打开开发者工具，切换到 Elements 面板。" },
+        { "text": "用左上角的元素选择器点一下本关卡片，或在 DOM 树里找到 article.quest。" },
+        { "text": "在右侧的属性面板里找到 data-range-token，它的值就是 flag。" },
+        { "text": "也可以在 Console 里直接读取：", "code": "document.querySelector('[data-range-token]').dataset.rangeToken" },
+        { "text": "知识点：data-* 属性常被前端用来存状态，但同样会暴露在 DOM 里。" }
+      ]
+    },
+    {
+      "id": "src-meta",
+      "category": "source",
+      "direction": "WEB",
+      "title": "头部的幽灵",
+      "subtitle": "META GHOST",
+      "difficulty": "EASY+",
+      "brief": "页面加载时，一个额外的 meta 标签被塞进了 <head>。它不属于任何可见区域。",
+      "hint": "Elements 面板顶部就是 <head>，展开它并搜索 meta。",
+      "artifact": { "type": "meta", "name": "range-proof" },
+      "tutorial": [
+        { "text": "按 F12 打开 Elements 面板。" },
+        { "text": "滚动到最顶部的 <head> 节点并展开。" },
+        { "text": "找到 name=\"range-proof\" 的 meta 标签，读取 content。" },
+        { "text": "Console 也可以直接查：", "code": "document.querySelector('meta[name=\"range-proof\"]').content" },
+        { "text": "知识点：meta 标签不会显示，但浏览器、爬虫和任何能打开开发者工具的人都能读到。" }
+      ]
+    },
+    {
+      "id": "rev-js",
+      "category": "source",
+      "direction": "REVERSE",
+      "title": "读一段前端逻辑",
+      "subtitle": "STATIC ANALYSIS",
+      "difficulty": "EASY",
+      "brief": "这段 JavaScript 会把 proof 拼出来。它没有加密，只是把字符串拆成了几段。",
+      "hint": "不需要运行，直接读常量并按顺序拼接。",
+      "artifact": {
+        "type": "code",
+        "code": "const part1 = \"flag{\";\nconst part2 = \"{{UUID}}\";\nconst part3 = \"}\";\n\n// 校验通过后才会打印\nconsole.log([part1, part2, part3].join(\"\"));"
+      },
+      "tutorial": [
+        { "text": "阅读卡片里的代码，找到 part1、part2、part3 三个常量。" },
+        { "text": "按 part1 + part2 + part3 的顺序拼接。" },
+        { "text": "也可以在 Console 里直接运行这三行，观察 join 的结果。" },
+        { "text": "知识点：逆向入门不是破解软件，而是先把代码读明白。硬编码的秘密永远能被读出来。" }
+      ]
+    },
+    {
+      "id": "path-robots",
+      "category": "path",
+      "direction": "WEB",
+      "title": "机器人指路",
+      "subtitle": "ROBOTS DISCLOSURE",
+      "difficulty": "EASY",
+      "brief": "站点有一个给爬虫看的文件。它不会守门，但会诚实地告诉你维护目录在哪里。",
+      "hint": "先请求 /robots.txt，读最后一行注释。",
+      "artifact": {
+        "type": "path",
+        "start": "/robots.txt",
+        "routes": [
+          {
+            "path": "/robots.txt",
+            "body": "User-agent: *\nDisallow: /old-range/\nAllow: /ctf.html\n\n# robots.txt 只是礼仪，不是门锁。\n# maintenance copy: /old-range/notice.txt"
+          },
+          {
+            "path": "/old-range/notice.txt",
+            "body": "RANGE NOTICE / 2026\nstatus: archived\n\nPROOF: {{FLAG}}\n\n# base64 is not a lock either."
+          }
+        ]
+      },
+      "tutorial": [
+        { "text": "在路径浏览器里输入 /robots.txt，点击发送。" },
+        { "text": "读取返回内容，找到注释里给出的维护文档路径。" },
+        { "text": "把这个路径再输入一次，返回内容里的 PROOF 就是 flag。" },
+        { "text": "知识点：robots.txt 会公开站点结构。它适合给爬虫看，不适合藏秘密。" }
+      ]
+    },
+    {
+      "id": "path-backup",
+      "category": "path",
+      "direction": "WEB",
+      "title": "备份文件",
+      "subtitle": "BACKUP LEFT BEHIND",
+      "difficulty": "EASY+",
+      "brief": "运维把调试页备份在了同目录，文件名带一个很常见的后缀。入口说明在 README 里。",
+      "hint": "先读 /README.txt，再试它提到的备份文件名。",
+      "artifact": {
+        "type": "path",
+        "start": "/README.txt",
+        "routes": [
+          {
+            "path": "/README.txt",
+            "body": "ZEROTHSEC RANGE / README\n\n- debug console 已下线，仅保留备份。\n- backup file: /console.bak\n- do not commit backups to production."
+          },
+          {
+            "path": "/console.bak",
+            "body": "// debug console snapshot\n// access: local only\n\nconst RANGE_PROOF = \"{{FLAG}}\";\n\nmodule.exports = { RANGE_PROOF };"
+          }
+        ]
+      },
+      "tutorial": [
+        { "text": "在路径浏览器里请求 /README.txt。" },
+        { "text": "README 提到了一份备份文件，注意它的后缀 .bak。" },
+        { "text": "请求 /console.bak，读取文件里的 RANGE_PROOF。" },
+        { "text": "知识点：.bak、.old、.zip 这类备份文件经常被遗忘在服务器上，是常见的信息泄露点。" }
+      ]
+    },
+    {
+      "id": "path-api",
+      "category": "path",
+      "direction": "WEB",
+      "title": "调试开关",
+      "subtitle": "DEBUG PARAM",
+      "difficulty": "EASY+",
+      "brief": "接口默认拒绝访问，但开发时留下的调试开关没有关掉。试试给请求加一个参数。",
+      "hint": "接口是 /api，试着加 ?debug=1。",
+      "artifact": {
+        "type": "path",
+        "start": "/api",
+        "routes": [
+          {
+            "path": "/api",
+            "body": "HTTP/1.1 403 Forbidden\n{\n  \"error\": \"debug disabled\",\n  \"hint\": \"developer switch is still mounted\"\n}"
+          },
+          {
+            "path": "/api?debug=1",
+            "body": "HTTP/1.1 200 OK\n{\n  \"debug\": true,\n  \"proof\": \"{{FLAG}}\"\n}"
+          }
+        ]
+      },
+      "tutorial": [
+        { "text": "先请求 /api，确认它返回 403。" },
+        { "text": "根据提示，尝试在路径后面加上查询参数 ?debug=1。" },
+        { "text": "请求 /api?debug=1，返回 JSON 里的 proof 就是 flag。" },
+        { "text": "知识点：查询参数是前端最常忘记校验的地方。调试开关上线前必须关闭。" }
+      ]
+    },
+    {
+      "id": "web-cookie",
+      "category": "path",
+      "direction": "WEB",
+      "title": "浏览器的小纸条",
+      "subtitle": "COOKIE LEAK",
+      "difficulty": "EASY",
+      "brief": "页面在你的浏览器里写了一条 cookie，名字是 range_proof。它不会显示在页面上，但浏览器会记住它。",
+      "hint": "F12 → Application（应用）→ Cookies，或直接在 Console 输入 document.cookie。",
+      "artifact": { "type": "cookie", "name": "range_proof" },
+      "tutorial": [
+        { "text": "按 F12 打开开发者工具，切换到 Application（应用）面板。" },
+        { "text": "在左侧找到 Cookies，展开当前站点，找到 range_proof。" },
+        { "text": "它的值就是本轮 flag。" },
+        { "text": "也可以在 Console 里输入：", "code": "document.cookie" },
+        { "text": "知识点：cookie 会被浏览器自动携带到请求里。不要在里面放真正的秘密。" }
+      ]
+    },
+    {
+      "id": "web-storage",
+      "category": "path",
+      "direction": "WEB",
+      "title": "本地存储",
+      "subtitle": "LOCAL STORAGE",
+      "difficulty": "EASY",
+      "brief": "页面把 proof 写进了 localStorage。它不在页面上，但会保存在当前浏览器里。",
+      "hint": "F12 → Application（应用）→ Local Storage，或 Console 里读取。",
+      "artifact": { "type": "storage", "key": "range_proof" },
+      "tutorial": [
+        { "text": "按 F12 打开开发者工具，切换到 Application 面板。" },
+        { "text": "在左侧找到 Local Storage，展开当前站点。" },
+        { "text": "找到 range_proof 这个键，读取它的值。" },
+        { "text": "也可以在 Console 里运行：", "code": "localStorage.getItem(\"range_proof\")" },
+        { "text": "知识点：localStorage 会长期留在浏览器里，清除站点数据才会消失。" }
+      ]
+    },
+    {
+      "id": "dec-base64",
+      "category": "decode",
+      "direction": "CRYPTO",
+      "title": "换了一身衣服",
+      "subtitle": "BASE64",
+      "difficulty": "EASY",
+      "brief": "这串数据没有加密，只是换了一种表示方式。把它还原成人类可读的样子。",
+      "hint": "以 = 结尾、大小写混杂，先怀疑 base64。",
+      "artifact": { "type": "decode", "method": "base64" },
+      "tutorial": [
+        { "text": "复制本关卡片里的 payload。" },
+        { "text": "在开发者工具 Console 中运行：", "code": "atob(\"粘贴 payload\")" },
+        { "text": "也可以用 CyberChef 的 From Base64 配方。" },
+        { "text": "知识点：Base64 是编码，不是加密。任何人都能还原。" }
+      ]
+    },
+    {
+      "id": "dec-hex",
+      "category": "decode",
+      "direction": "CRYPTO",
+      "title": "十六进制",
+      "subtitle": "HEX",
+      "difficulty": "EASY+",
+      "brief": "payload 里只有 0-9 和 a-f。每两个字符代表一个字节。",
+      "hint": "先把每两个字符切成一组，再按十六进制转 ASCII。",
+      "artifact": { "type": "decode", "method": "hex" },
+      "tutorial": [
+        { "text": "复制 payload。" },
+        { "text": "在 Console 里按字节解码：", "code": "[...payload.match(/../g)]\n  .map(b => String.fromCharCode(parseInt(b, 16)))\n  .join(\"\")" },
+        { "text": "如果看到成对、只含 0-9a-f 的字符串，先想到十六进制。" },
+        { "text": "知识点：十六进制是最常见的字节表示法，和 base64 一样只是表示层。" }
+      ]
+    },
+    {
+      "id": "dec-rot13",
+      "category": "decode",
+      "direction": "CRYPTO",
+      "title": "转十三",
+      "subtitle": "ROT13",
+      "difficulty": "EASY+",
+      "brief": "字母整体移动了 13 位。它不是强加密，只是一层很薄的遮挡。",
+      "hint": "把每个字母向后推 13 位；超过 z 就绕回 a。",
+      "artifact": { "type": "decode", "method": "rot13" },
+      "tutorial": [
+        { "text": "复制 payload。" },
+        { "text": "在 Console 里逐字符转换：", "code": "const s = \"粘贴 payload\";\n[...s].map(c => {\n  const n = c.charCodeAt(0);\n  if (n >= 65 && n <= 90) return String.fromCharCode((n - 65 + 13) % 26 + 65);\n  if (n >= 97 && n <= 122) return String.fromCharCode((n - 97 + 13) % 26 + 97);\n  return c;\n}).join(\"\")" },
+        { "text": "ROT13 转两次会回到原文，所以它可以用来加、也可以用来解。" },
+        { "text": "知识点：古典替换密码没有密钥强度，现代系统不会用它保护秘密。" }
+      ]
+    },
+    {
+      "id": "dec-caesar",
+      "category": "decode",
+      "direction": "CRYPTO",
+      "title": "凯撒移位",
+      "subtitle": "CAESAR SHIFT",
+      "difficulty": "EASY+",
+      "brief": "字母被整体向后推了 3 位。把它推回来，就能看到原来的句子。",
+      "hint": "a → x，b → y，c → z；也就是每个字母往回移动 3 位。",
+      "artifact": { "type": "decode", "method": "caesar" },
+      "tutorial": [
+        { "text": "复制 payload。" },
+        { "text": "在 Console 里把每个字母往回移动 3 位：", "code": "const s = \"粘贴 payload\";\n[...s].map(c => {\n  const n = c.charCodeAt(0);\n  if (n >= 65 && n <= 90) return String.fromCharCode((n - 65 - 3 + 26) % 26 + 65);\n  if (n >= 97 && n <= 122) return String.fromCharCode((n - 97 - 3 + 26) % 26 + 97);\n  return c;\n}).join(\"\")" },
+        { "text": "也可以用 CyberChef 的 ROT13，再把位移量改成 23。" },
+        { "text": "知识点：凯撒密码只有 25 种可能位移，靠暴力枚举也能破解。" }
+      ]
+    },
+    {
+      "id": "dec-atbash",
+      "category": "decode",
+      "direction": "CRYPTO",
+      "title": "镜像字母",
+      "subtitle": "ATBASH",
+      "difficulty": "EASY",
+      "brief": "字母表被从中间对折：a 换成 z，b 换成 y。数字和符号保持不变。",
+      "hint": "A↔Z，B↔Y，C↔X……",
+      "artifact": { "type": "decode", "method": "atbash" },
+      "tutorial": [
+        { "text": "复制 payload。" },
+        { "text": "在 Console 里做镜像替换：", "code": "const s = \"粘贴 payload\";\n[...s].map(c => {\n  const n = c.charCodeAt(0);\n  if (n >= 65 && n <= 90) return String.fromCharCode(90 - (n - 65));\n  if (n >= 97 && n <= 122) return String.fromCharCode(122 - (n - 97));\n  return c;\n}).join(\"\")" },
+        { "text": "也可以通过在线 Atbash 解码器直接还原。" },
+        { "text": "知识点：Atbash 是一种固定替换，没有密钥，安全性很低。" }
+      ]
+    },
+    {
+      "id": "dec-binary",
+      "category": "decode",
+      "direction": "CRYPTO",
+      "title": "二进制纸条",
+      "subtitle": "BINARY ASCII",
+      "difficulty": "EASY+",
+      "brief": "每个字符都被写成了 8 位二进制，用空格隔开。",
+      "hint": "每 8 位对应一个字符，按二进制转 ASCII。",
+      "artifact": { "type": "decode", "method": "binary" },
+      "tutorial": [
+        { "text": "复制 payload。" },
+        { "text": "在 Console 里按空格切开，再按二进制解析：", "code": "payload.split(\" \").map(b => String.fromCharCode(parseInt(b, 2))).join(\"\")" },
+        { "text": "也可以把二进制贴进 CyberChef 的 From Binary 配方。" },
+        { "text": "知识点：计算机里的字符最终都是二进制，ASCII 只是人类约定的一张映射表。" }
+      ]
+    },
+    {
+      "id": "dec-reversed",
+      "category": "decode",
+      "direction": "CRYPTO",
+      "title": "倒着写的答案",
+      "subtitle": "REVERSED STRING",
+      "difficulty": "EASY",
+      "brief": "整段文本被倒过来了。从后往前读，或者用一行代码翻转。",
+      "hint": "把字符顺序反过来。",
+      "artifact": { "type": "decode", "method": "reverse" },
+      "tutorial": [
+        { "text": "复制 payload。" },
+        { "text": "在 Console 里翻转：", "code": "[...payload].reverse().join(\"\")" },
+        { "text": "也可以直接倒着读，注意花括号和连字符的位置。" },
+        { "text": "知识点：倒序不是加密，只是最浅的一层障眼法。" }
+      ]
+    },
+    {
+      "id": "int-memory",
+      "category": "interactive",
+      "direction": "MISC",
+      "title": "信号序列",
+      "subtitle": "SEQUENCE MEMORY",
+      "difficulty": "EASY",
+      "brief": "四个信号灯会依次闪烁。记住顺序并重复出来，连续通过 3 轮。",
+      "hint": "先看完整段闪烁，再开始点。点错会重新开始当前轮。",
+      "artifact": { "type": "memory", "rounds": 3, "length": 3 },
+      "tutorial": [
+        { "text": "点击“开始序列”，观察四个灯依次亮起。" },
+        { "text": "闪烁结束后，按相同顺序点击四个灯。" },
+        { "text": "连续通过 3 轮，flag 会显示在卡片里。" },
+        { "text": "知识点：这类交互题考的是观察与复述，不是渗透技术。" }
+      ]
+    },
+    {
+      "id": "int-reflex",
+      "category": "interactive",
+      "direction": "MISC",
+      "title": "反应窗口",
+      "subtitle": "REFLEX WINDOW",
+      "difficulty": "EASY",
+      "brief": "灯会在随机时间变绿。变绿后 1.2 秒内点击，连续完成 3 轮。",
+      "hint": "绿灯之前点击会判定失败，别抢跑。",
+      "artifact": { "type": "reflex", "rounds": 3, "window": 1200 },
+      "tutorial": [
+        { "text": "点击“等待信号”，按钮会先保持红色。" },
+        { "text": "按钮变绿后立刻点击。超过 1.2 秒或提前点击都会失败。" },
+        { "text": "连续完成 3 轮，flag 会显示在卡片里。" },
+        { "text": "知识点：这是一道节奏题，用来练习耐心与观察，不需要任何工具。" }
+      ]
+    },
+    {
+      "id": "int-pixel",
+      "category": "interactive",
+      "direction": "MISC",
+      "title": "像素潜行",
+      "subtitle": "PIXEL BREACH",
+      "difficulty": "EASY+",
+      "brief": "收集页面顶部游戏区里的 4 个数据碎片，避开红色哨兵，抵达出口端口。",
+      "hint": "点击下方按钮前往游戏区。先观察哨兵的折返节奏，不必急着冲。",
+      "artifact": { "type": "pixel" },
+      "tutorial": [
+        { "text": "点击“前往游戏区”，或直接滚动到页面顶部的像素潜行区域。" },
+        { "text": "点击“开始运行”，用方向键或 WASD 移动绿色数据包。" },
+        { "text": "收集四个角落的碎片，被哨兵撞到会回到起点，但碎片保留。" },
+        { "text": "四枚碎片集齐后抵达出口，结算面板会给出本轮的 flag。" },
+        { "text": "知识点：这是前端逻辑题，胜利条件由客户端计算，flag 由当前浏览器校验。" }
+      ]
+    },
+    {
+      "id": "pwn-overflow",
+      "category": "interactive",
+      "direction": "PWN",
+      "title": "溢出的边界",
+      "subtitle": "BUFFER OVERFLOW",
+      "difficulty": "EASY",
+      "brief": "这是一个模拟的输入缓冲区，只有 16 字节空间。输入超过 24 个字符，相邻变量会被覆盖，proof 就会打印出来。",
+      "hint": "随便输入一段很长的字符，比如 30 个 A。",
+      "artifact": { "type": "overflow", "limit": 24 },
+      "tutorial": [
+        { "text": "在输入框里输入超过 24 个字符，例如 30 个 A。" },
+        { "text": "点击提交，观察缓冲区被覆盖后的输出。" },
+        { "text": "flag 会显示在结果里，并自动填入卡片输入框。" },
+        { "text": "知识点：缓冲区溢出是 Pwn 方向的经典问题。真实程序里，它可能导致崩溃或任意代码执行。" }
+      ]
+    },
+    {
+      "id": "misc-exif",
+      "category": "interactive",
+      "direction": "MISC",
+      "title": "图片的备注",
+      "subtitle": "IMAGE METADATA",
+      "difficulty": "EASY",
+      "brief": "这张图片不会直接显示 flag。它的 PNG 文本块里被写入了一段备注。",
+      "hint": "下载图片，查看它的元数据 Comment 字段；用文本编辑器搜索 flag{ 也可以。",
+      "artifact": { "type": "image", "filename": "range-badge.png" },
+      "tutorial": [
+        { "text": "点击卡片里的“下载图片”，保存到本地。" },
+        { "text": "用 exiftool 查看元数据（如果已安装）：", "code": "exiftool range-badge.png" },
+        { "text": "也可以直接用记事本打开图片，按 Ctrl+F 搜索 flag{；或者把图片拖进任意在线 EXIF 查看器。" },
+        { "text": "Comment 字段里的 RANGE PROOF 就是本轮 flag。" },
+        { "text": "知识点：图片不只有像素，PNG 的 tEXt 块、EXIF 都可能藏信息，这是 MISC 的常见入口。" }
+      ]
+    },
+    {
+      "id": "misc-log",
+      "category": "interactive",
+      "direction": "MISC",
+      "title": "日志里的异常",
+      "subtitle": "LOG AUDIT",
+      "difficulty": "EASY",
+      "brief": "这是一段访问日志。绝大多数行都是正常请求，只有一行不太对劲。",
+      "hint": "Ctrl+F 搜 flag{，或者找 proof= 字段。",
+      "artifact": { "type": "log" },
+      "tutorial": [
+        { "text": "在日志区域按 Ctrl+F，搜索 flag{。" },
+        { "text": "找到带有 proof= 的那一行，flag 就在等号后面。" },
+        { "text": "把这一行里的 flag 复制到下方输入框提交。" },
+        { "text": "知识点：日志排查是 MISC 和蓝队方向的基础能力。异常关键字、异常状态码、异常路径都是入口。" }
+      ]
+    }
+  ]
+}

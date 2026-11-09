@@ -1,0 +1,5 @@
+User-agent: *
+Allow: /
+
+# ZEROTHSEC 新手靶场
+# 所有题目与 flag 都在前端本地生成，不需要服务器。
