@@ -1,5 +1,5 @@
 {
-  "updated": "2026-11-17T15:21:18.485Z",
+  "updated": "2026-11-17T15:23:29.351Z",
   "students": [
     {
       "github": "alice",
@@ -12,6 +12,12 @@
       "name": "Bob",
       "direction": "websec",
       "at": "2026-11-17T15:21:18.485Z"
+    },
+    {
+      "github": "eve",
+      "name": "Eve",
+      "direction": "websec",
+      "at": "2026-11-17T15:23:29.351Z"
     }
   ]
 }
