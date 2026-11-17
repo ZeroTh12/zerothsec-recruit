@@ -1,4 +1,11 @@
 {
-  "updated": "2026-11-17T15:03:51.035Z",
-  "students": []
+  "updated": "2026-11-17T15:21:15.771Z",
+  "students": [
+    {
+      "github": "alice",
+      "name": "Alice",
+      "direction": "websec",
+      "at": "2026-11-17T15:21:15.771Z"
+    }
+  ]
 }
