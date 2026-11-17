@@ -161,7 +161,7 @@ def build_bank(token, practice, per_diff, dry):
                     "desc": desc,
                     "hint": "点「去平台做题」在 CTF² 打开原题；flag 在平台提交验证，Writeup 交本站教练。",
                     "flag": "",  # 平台题无法离线校验 flag
-                    "link": "%s/dashboard/practice/%s/challenges/%s" % (BASE, practice, cid),
+                    "link": "%s/dashboard/practice/%s?tab=challenges&challenge=%s" % (BASE, practice, cid),
                     "source": "ctf2.dasctf.com/BUUCTF",
                 })
     return {"count": len(challenges), "challenges": challenges}
