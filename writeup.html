@@ -87,98 +87,87 @@
           <span class="accent">才算真的解出来。</span>
         </h1>
         <p class="page-deck">
-          在 <a href="ctf.html">攻防演练（03）</a>和<strong>加密题库</strong>里解题，回到这里提交你的 <strong>Writeup</strong>。
-          提交走 GitHub Issues（数据存 GitHub），教练打标签审核，<strong>排行榜</strong>由 Actions 自动加密生成、实时更新。
+          在 <a href="ctf.html">攻防演练（03）</a>和<strong>加密题库</strong>里解题，回到这里登录并提交 <strong>Writeup</strong>。
+          提交生成规范命名的 md 文件发给教练，教练审核发布结果后，你在<strong>排行榜</strong>与题目卡上看到 通过/打回。
         </p>
         <div class="page-meta">
-          <span>SUBMIT VIA GITHUB</span>
-          <span>REVIEW BY LABELS</span>
-          <span>LEADERBOARD AUTO</span>
+          <span>LOGIN TO START</span>
+          <span>DIRECTION-BASED TASKS</span>
+          <span>MD FILE SUBMIT</span>
+          <span>COACH REVIEW</span>
           <span>ENCRYPTED BANK</span>
         </div>
         <span class="page-watermark" aria-hidden="true">04</span>
       </div>
     </section>
 
-    <!-- IDENTITY / 身份登记 -->
+    <!-- LOGIN GATE / 登录门禁：登录后才出现题目、提交与排行榜 -->
     <section class="content-section wp-section" id="auth-section">
       <div class="wrap">
-        <span class="kicker">ACCESS / 身份登记</span>
+        <span class="kicker">ACCESS / 身份登录</span>
 
-        <div id="wp-profile-box">
+        <div id="wp-gate">
           <div class="wp-auth">
             <h3 class="wp-auth-title">登录 / 注册<span class="wp-auth-sub">ZS-ID · 本机身份 · 无需密码</span></h3>
-
-            <div class="wp-auth-tabs" role="tablist" aria-label="登录或注册">
-              <button type="button" id="wp-tab-register" class="is-on" aria-selected="true">注册 / 登记身份</button>
-              <button type="button" id="wp-tab-me" aria-selected="false">我的身份</button>
-            </div>
-
-            <!-- 注册 / 登记面板 -->
-            <div id="wp-auth-register">
-              <p class="wp-muted" style="margin-bottom:14px;">
-                无需注册账号——用你的 <strong>GitHub 账号</strong>即可。这里登记的信息保存在你自己的浏览器里，
-                每次提交 Writeup 时自动写入 GitHub Issue（队员身份 = GitHub 账号，教练权限 = 仓库写权限）。
-              </p>
-              <form id="wp-profile-form" autocomplete="on">
-                <div class="wp-row">
-                  <div class="wp-field" style="flex:1;">
-                    <label for="pf-github">GitHub 用户名（必填，排行榜与审核核对用）</label>
-                    <input id="pf-github" name="github" type="text" placeholder="例如：ZeroTh12" required>
-                  </div>
-                  <div class="wp-field" style="flex:1;">
-                    <label for="pf-name">真实姓名（必填，规范命名 &lt;姓名&gt;-&lt;题号&gt;.md）</label>
-                    <input id="pf-name" name="name" type="text" placeholder="例如：张三" required>
-                  </div>
+            <p class="wp-muted" style="margin-bottom:14px;">
+              用 <strong>GitHub 用户名 + 真实姓名 + 研究方向</strong>登录。身份只保存在你自己的浏览器里；
+              <strong>登录后才能看到题目、提交入口与排行榜</strong>。方向决定你看到哪一批题，请按登记的方向选择。
+            </p>
+            <form id="wp-profile-form" autocomplete="on">
+              <div class="wp-row">
+                <div class="wp-field" style="flex:1;">
+                  <label for="pf-github">GitHub 用户名（必填，审核结果按它核对）</label>
+                  <input id="pf-github" name="github" type="text" placeholder="例如：StudentName123" required>
                 </div>
-                <div class="wp-field">
-                  <label for="pf-dir">研究方向（选定后按方向发题与批次，不可随意更改）</label>
-                  <select id="pf-dir" name="direction" required>
-                    <option value="">—— 选择方向 ——</option>
-                    <option value="websec">Web 安全（含密码学）</option>
-                    <option value="rpwn">逆向与 Pwn</option>
-                    <option value="forensics">数字取证</option>
-                    <option value="defense">防守与运营</option>
-                  </select>
-                  <p class="wp-hint">方向对应工作室四条战线，题库按方向池发放（从 EASY 到 HARD 递进），每批次有截止倒计时。审核台仅教练账号可见。</p>
+                <div class="wp-field" style="flex:1;">
+                  <label for="pf-name">真实姓名（必填，提交规范命名 &lt;姓名&gt;-&lt;题号&gt;.md）</label>
+                  <input id="pf-name" name="name" type="text" placeholder="例如：张三" required>
                 </div>
-                <p class="wp-msg" id="wp-profile-msg"></p>
-                <button class="wp-btn is-primary" type="submit">登记身份，进入系统 →</button>
-                <button class="wp-btn" type="button" id="wp-profile-clear">清除本机身份</button>
-              </form>
-            </div>
-
-            <!-- 我的身份面板（登录后的身份卡，由 JS 渲染） -->
-            <div id="wp-auth-me" hidden></div>
+              </div>
+              <div class="wp-field">
+                <label for="pf-dir">研究方向（决定发放哪个方向的题目，登录后不可随意更改）</label>
+                <select id="pf-dir" name="direction" required>
+                  <option value="">—— 选择方向 ——</option>
+                  <option value="websec">Web 安全（含密码学）</option>
+                  <option value="rpwn">逆向与 Pwn</option>
+                  <option value="forensics">数字取证</option>
+                  <option value="defense">防守与运营</option>
+                </select>
+                <p class="wp-hint">题库按方向池发放（EASY → HARD 按批次递进），每批次有截止倒计时。</p>
+              </div>
+              <p class="wp-msg" id="wp-profile-msg"></p>
+              <button class="wp-btn is-primary" type="submit">登录，进入题目面板 →</button>
+              <button class="wp-btn" type="button" id="wp-profile-clear">清除本机身份</button>
+            </form>
           </div>
         </div>
 
-        <!-- 功能标签 -->
-        <div id="wp-tabs">
+        <!-- 登录后区域 -->
+        <div id="wp-app" hidden>
           <div class="wp-row" style="margin-bottom:26px;">
             <nav class="wp-row" aria-label="系统导航">
               <button class="wp-btn is-mini wp-tab is-on" type="button" data-view="tasks">题目 / 提交</button>
               <button class="wp-btn is-mini wp-tab" type="button" data-view="rank">排行榜</button>
-              <button class="wp-btn is-mini wp-tab" type="button" data-view="review">审核台</button>
+              <button class="wp-btn is-mini wp-tab" type="button" data-view="review" hidden>审核台</button>
               <button class="wp-btn is-mini wp-tab" type="button" data-view="guide">说明</button>
             </nav>
             <span class="wp-muted" id="wp-whoami"></span>
+            <button class="wp-btn is-mini" type="button" id="wp-logout-btn">退出登录</button>
           </div>
-        </div>
 
-        <!-- 各视图 -->
-        <div id="wp-views">
-          <div class="wp-view" id="wp-view-tasks">
-            <div class="wp-section-body"></div>
-          </div>
-          <div class="wp-view" id="wp-view-rank" hidden>
-            <div class="wp-section-body"></div>
-          </div>
-          <div class="wp-view" id="wp-view-review" hidden>
-            <div class="wp-section-body"></div>
-          </div>
-          <div class="wp-view" id="wp-view-guide" hidden>
-            <div class="wp-section-body"></div>
+          <div id="wp-views">
+            <div class="wp-view" id="wp-view-tasks">
+              <div class="wp-section-body"></div>
+            </div>
+            <div class="wp-view" id="wp-view-rank" hidden>
+              <div class="wp-section-body"></div>
+            </div>
+            <div class="wp-view" id="wp-view-review" hidden>
+              <div class="wp-section-body"></div>
+            </div>
+            <div class="wp-view" id="wp-view-guide" hidden>
+              <div class="wp-section-body"></div>
+            </div>
           </div>
         </div>
       </div>
@@ -219,10 +208,10 @@
     </div>
   </footer>
 
-  <script src="assets/js/wp-config.js?v=20261117b"></script>
+  <script src="assets/js/wp-config.js?v=20261117c"></script>
   <script src="assets/js/bank.js?v=20261117b"></script>
   <script src="assets/data/bank.enc.js?v=20261117"></script>
-  <script src="assets/js/writeup.js?v=20261117b"></script>
+  <script src="assets/js/writeup.js?v=20261117c"></script>
   <script src="assets/js/motion.js?v=20261105"></script>
   <script src="assets/js/main.js?v=20261105"></script>
 </body>
