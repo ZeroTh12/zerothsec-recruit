@@ -441,9 +441,12 @@
       ? "// 方向：" + TRACKS[profile.direction].label + " · 每日发题制 · 每天 0 点解锁 " + plan.daily + " 道新题 · 本周共 " + plan.weekly + " 题（易→难，绝不重复）"
       : "// 方向：" + TRACKS[profile.direction].label + " · 星期制批次 · 每周 " + plan.weekly + " 题（易→难自动递进）";
     banner.appendChild(el("p", "wp-kicker", head1));
-    banner.appendChild(el("p", "wp-msg",
-      "第 " + plan.week + " 周 · 第 " + plan.dayInWeek + "/7 天 · 周期截止倒计时：<b data-deadline=\"" + plan.weekDeadline + "\">" +
-      countdownText(plan.weekDeadline) + "</b>"));
+    var cdLine = el("p", "wp-msg",
+      "第 " + plan.week + " 周 · 第 " + plan.dayInWeek + "/7 天 · 周期截止倒计时：");
+    var cdNum = el("b", null, countdownText(plan.weekDeadline));
+    cdNum.setAttribute("data-deadline", String(plan.weekDeadline));
+    cdLine.appendChild(cdNum);
+    banner.appendChild(cdLine);
     var weekSliceList = pool.slice((plan.week - 1) * plan.weekly, plan.week * plan.weekly);
     var done = weekSliceList.filter(function (c) { return statusMap[c.id] && statusMap[c.id].status === "accepted"; }).length;
     banner.appendChild(el("p", "wp-muted", "本周完成 " + done + " / " + weekSliceList.length + " 题 · 累计通过 " +
