@@ -1,5 +1,13 @@
 {
-  "updated": "",
+  "updated": "2026-11-17T13:06:25.179Z",
   "note": "ZEROTHSEC 审核结果（教练审核台导出，勿手动改格式）",
-  "entries": []
+  "entries": [
+    {
+      "id": "WEB-07",
+      "name": "李四",
+      "status": "accepted",
+      "score": 30,
+      "reason": ""
+    }
+  ]
 }
