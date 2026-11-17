@@ -11,15 +11,16 @@
   <link rel="stylesheet" href="assets/css/writeup.css?v=20261117j">
   <style>
     .rev-card { border: 1px solid var(--line); background: var(--ink-2); padding: 14px 16px; margin-bottom: 14px; }
-    .rev-head { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 8px; }
-    .rev-body { white-space: pre-wrap; font: 400 12.5px/1.7 var(--font-mono); color: var(--bone); background: #050505; border: 1px solid var(--line); padding: 12px; max-height: 420px; overflow: auto; margin-bottom: 8px; }
+    .rev-head { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 10px; }
+    .rev-body { white-space: pre-wrap; font: 400 12.5px/1.7 var(--font-mono); color: var(--bone); background: #050505; border: 1px solid var(--line); padding: 12px; max-height: 420px; overflow: auto; margin-bottom: 8px; width: 100%; }
+    textarea.rev-body { min-height: 260px; resize: vertical; }
     .rev-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
     .rev-actions input { background: #050505; color: var(--bone); border: 1px solid var(--line); padding: 7px 9px; font: 400 12px var(--font-mono); }
     .toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 16px 0; }
     .toolbar input[type=search] { flex: 1; min-width: 200px; background: #050505; color: var(--bone); border: 1px solid var(--line); padding: 9px 12px; font: 400 12px var(--font-mono); }
     .secret-note { color: var(--red); font: 600 12px/1.7 var(--font-mono); }
-    .drop-zone { border: 1px dashed var(--line-strong); padding: 26px; text-align: center; color: var(--muted); margin: 14px 0; }
-    .drop-zone.on { border-color: var(--acid); color: var(--acid); }
+    .key-gate { border: 1px solid var(--line-strong); padding: 16px; margin: 16px 0; display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+    .key-gate input { flex: 1; min-width: 220px; background: #050505; color: var(--bone); border: 1px solid var(--line); padding: 9px 12px; font: 400 12px var(--font-mono); }
   </style>
 </head>
 <body>
@@ -41,17 +42,13 @@
   <main id="main">
     <section class="content-section wp-section">
       <div class="wrap">
-        <span class="kicker">WRITEUP 管理 / 收件箱 + 增删改查 + AI 辅助审核</span>
-        <p class="secret-note">此页地址请勿外发。收到的 .md 拖进下方收件箱即可审核；数据缓存在本浏览器，结论不会丢。</p>
+        <span class="kicker">WRITEUP 管理 / 学生提交即入库，这里直接增删改查 + 审核</span>
+        <p class="secret-note">此页地址请勿外发。学生上传的 .md 已经自动存进提交库，打开即见，不需要任何导入步骤。</p>
 
-        <div class="drop-zone" id="drop">
-          把 QQ 群收到的 <b>&lt;姓名&gt;-&lt;题号&gt;.md</b> 文件拖到这里（可多选）·
-          <label style="color:var(--acid);cursor:pointer;">或选择文件<input type="file" id="picker" multiple accept=".md,.markdown,.txt" style="display:none"></label>
-          · 也可 <button class="wp-btn is-mini" type="button" id="toggle-paste" style="display:inline-block;">粘贴文本</button>
-        </div>
-        <div id="paste-box" hidden class="wp-field" style="margin-bottom:14px;">
-          <textarea id="paste-area" class="wp-writeup-area" rows="5" placeholder="粘贴 Writeup 文本（含 ZSWP 头，或标题行 <姓名>-<题号>.md）"></textarea>
-          <button class="wp-btn is-mini" type="button" id="parse-paste">解析并加入收件箱</button>
+        <div class="key-gate" id="gate" hidden>
+          <span class="wp-muted">首次使用请粘贴一次管理密钥（会记住）：</span>
+          <input type="password" id="key-in" placeholder="管理密钥">
+          <button class="wp-btn is-mini is-primary" type="button" id="key-save">进入</button>
         </div>
 
         <div class="toolbar">
@@ -59,322 +56,253 @@
           <button class="wp-btn is-mini" type="button" id="refresh">⟳ 刷新</button>
           <button class="wp-btn is-mini" type="button" id="ai-copy">🤖 复制待审 AI 包</button>
           <button class="wp-btn is-mini" type="button" id="ai-import">📥 导入 AI 结论</button>
-          <button class="wp-btn is-mini" type="button" id="sync-btn">☁ 拉取仓库 submissions/</button>
         </div>
 
-        <div id="list"><p class="wp-muted">收件箱为空。</p></div>
-
-        <div class="wp-auth" style="margin-top:22px;">
-          <h3 class="wp-task-title">审核结果发布</h3>
-          <p class="wp-muted">逐题「通过/打回」后点「复制发布包」，把内容发给助手（或自己运行发布命令），学生端即显示结果与排行榜。</p>
-          <textarea id="export" class="wp-writeup-area" rows="8" readonly></textarea>
-          <button class="wp-btn is-mini is-primary" type="button" id="copy-out">复制发布包（results.json）</button>
-          <button class="wp-btn is-mini" type="button" id="dl-out">下载文件</button>
-        </div>
+        <div id="list"><p class="wp-muted">加载中…</p></div>
       </div>
     </section>
   </main>
 
-  <script src="assets/js/wp-config.js?v=20261117f"></script>
-  <script src="assets/js/bank.js?v=20261117b"></script>
-  <script src="assets/data/bank.enc.js?v=20261117e"></script>
+  <script src="assets/js/wp-config.js?v=20261118a"></script>
   <script>
   (function () {
     "use strict";
     var CFG = window.WP_CONFIG || {};
-    var SUB = CFG.subDir || "submissions";
-    var RELAY = (CFG.relay || "").replace(/\/+$/, "");
     var $ = function (s) { return document.querySelector(s); };
-    var bank = null, files = [], queueNote = "";
+    var RELAY = (CFG.relay || "").replace(/\/+$/, "");
+    var KEY = "";
+    var files = [], entries = [];
 
-    /* ---------- 本地收件箱（localStorage，关页不丢） ---------- */
-    var LS_FILES = "zs-coach-files", LS_ENTRIES = "zs-coach-entries";
-    function boxFiles() { try { return JSON.parse(localStorage.getItem(LS_FILES) || "{}"); } catch (e) { return {}; } }
-    function saveBoxFiles(m) {
-      try { localStorage.setItem(LS_FILES, JSON.stringify(m)); return true; }
-      catch (e) { alert("浏览器缓存已满：请先在收件箱删除已发布的旧文件"); return false; }
-    }
-    function boxEntries() { try { return JSON.parse(localStorage.getItem(LS_ENTRIES) || "[]"); } catch (e) { return []; } }
-    var entries = boxEntries();
-    function saveEntries() { try { localStorage.setItem(LS_ENTRIES, JSON.stringify(entries)); } catch (e) { /* ignore */ } }
+    function el(tag, cls, text) { var n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; }
+    function saveKey(k) { try { localStorage.setItem("zs-coach-key", k); } catch (e) { /* ignore */ } }
 
-    function b64(str) {
-      var bytes = new TextEncoder().encode(str), bin = "";
-      for (var i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
-      return btoa(bin);
-    }
-    function ghAnon(path) {
-      return fetch("https://api.github.com" + path, { headers: { Accept: "application/vnd.github+json" } });
-    }
-    function chById(id) { return bank && (bank.challenges || []).find(function (c) { return c.id === id; }) || null; }
-    function parseMd(text, filename) {
-      var meta = { id: "", name: "", github: "", direction: "" };
-      var m = (text || "").match(/<!--ZSWP([\s\S]*?)-->/);
-      if (m) ["id", "name", "github", "direction"].forEach(function (k) {
-        var mm = m[1].match(new RegExp("^\\s*" + k + "\\s*:\\s*(.+)$", "m"));
-        if (mm) meta[k] = mm[1].trim();
+    /* 密钥：优先 URL 片段 #k=xxx（不进服务器日志），其次本机记忆 */
+    (function () {
+      var m = (location.hash || "").match(/k=([^&]+)/);
+      if (m) { KEY = decodeURIComponent(m[1]); saveKey(KEY); return; }
+      try { KEY = localStorage.getItem("zs-coach-key") || ""; } catch (e) { KEY = ""; }
+    })();
+
+    function api(path, opt) {
+      opt = opt || {};
+      return fetch(RELAY + path, {
+        method: opt.method || "GET",
+        headers: Object.assign({ "x-coach-key": KEY }, opt.body ? { "Content-Type": "application/json" } : {}),
+        body: opt.body ? JSON.stringify(opt.body) : undefined
+      }).then(function (r) {
+        return r.json().then(function (d) {
+          if (!r.ok) throw new Error(d.error || ("HTTP " + r.status));
+          return d;
+        });
       });
-      if (!meta.id || !meta.name) {
-        var fm = (filename || "").match(/^(.+)-((?:WEB|CRYPTO|MISC|REVERSE|PWN)-\d+)\.md$/i);
-        if (fm) { meta.name = meta.name || fm[1]; meta.id = meta.id || fm[2].toUpperCase(); }
-      }
-      if (!meta.id) {
-        var tm = (text || "").match(/((?:WEB|CRYPTO|MISC|REVERSE|PWN)-\d+)/i);
-        if (tm) meta.id = tm[1].toUpperCase();
-      }
-      return meta;
     }
 
-    /* ---------- 列表 ---------- */
-    function loadBox() {
-      var m = boxFiles();
-      files = Object.keys(m).map(function (n) {
-        return { name: n, size: (m[n].content || "").length, at: m[n].at, src: "box" };
-      });
-      renderList();
-    }
-    async function syncRemote() {
-      var btn = this;
-      btn.textContent = "拉取中…";
-      try {
-        var list;
-        if (RELAY) {
-          var r = await fetch(RELAY + "/api/list");
-          if (!r.ok) throw new Error("HTTP " + r.status);
-          list = await r.json();
-        } else {
-          var r2 = await ghAnon("/repos/" + CFG.repo + "/contents/" + SUB);
-          if (!r2.ok) throw new Error("HTTP " + r2.status + "（限流或无网络）");
-          list = (await r2.json()).filter(function (f) { return f.name !== "README.md"; });
-        }
-        var m = boxFiles(), added = 0;
-        for (var i = 0; i < list.length; i++) {
-          var f = list[i];
-          if (m[f.name]) continue;
-          var content = "";
-          try {
-            if (RELAY) {
-              var rr = await fetch(RELAY + "/api/read?name=" + encodeURIComponent(f.name));
-              content = (await rr.json()).content || "";
-            } else {
-              var rr2 = await ghAnon("/repos/" + CFG.repo + "/contents/" + SUB + "/" + encodeURIComponent(f.name));
-              if (rr2.ok) content = decodeURIComponent(escape(atob((await rr2.json()).content.replace(/\n/g, ""))));
-            }
-          } catch (e) { /* 内容稍后可再拉 */ }
-          m[f.name] = { content: content, at: f.updated || new Date().toISOString() };
-          added++;
-        }
-        if (!saveBoxFiles(m)) { btn.textContent = "☁ 拉取仓库 submissions/"; return; }
-        queueNote = "已拉取 " + added + " 个远端文件进收件箱";
-        loadBox();
-      } catch (e) { queueNote = "拉取失败：" + e.message; }
-      btn.textContent = "☁ 拉取仓库 submissions/";
-    }
-
-    function entryFor(name) {
-      var m = name.match(/^(.+)-((?:WEB|CRYPTO|MISC|REVERSE|PWN)-\d+)\.md$/i);
-      if (!m) return null;
-      var nm = m[1], id = m[2].toUpperCase();
+    function chOf(n) { var m = n.match(/-(WEB|CRYPTO|MISC|REVERSE|PWN)-(\d+)\.md$/i); return m ? (m[1].toUpperCase() + "-" + m[2]) : ""; }
+    function nmOf(n) { var m = n.match(/^(.+)-(WEB|CRYPTO|MISC|REVERSE|PWN)-\d+\.md$/i); return m ? m[1] : n.replace(/\.md$/i, ""); }
+    function entOf(n) {
+      var id = chOf(n), nm = nmOf(n);
       return entries.find(function (e) {
-        return e.id === id && (e.name || "").toLowerCase() === nm.toLowerCase();
+        return e.id === id && String(e.name || "").toLowerCase() === nm.toLowerCase();
       }) || null;
     }
 
-    function renderList() {
+    async function load() {
+      if (!RELAY) {
+        $("#list").innerHTML = '<p class="wp-muted">提交库地址未配置：请在 assets/js/wp-config.js 里填好 relay。</p>';
+        return;
+      }
+      try {
+        files = await api("/api/list");
+        var st = await api("/api/state");
+        entries = st.entries || [];
+        render();
+      } catch (e) {
+        $("#list").innerHTML = "";
+        $("#list").appendChild(el("p", "secret-note", "读取失败：" + e.message));
+      }
+    }
+
+    function render() {
       var host = $("#list");
       host.innerHTML = "";
-      if (queueNote) { host.appendChild(el("p", "wp-muted", queueNote)); }
-      var kw = $("#q").value.trim().toLowerCase();
+      var kw = ($("#q").value || "").trim().toLowerCase();
       var shown = files.filter(function (f) { return !kw || f.name.toLowerCase().indexOf(kw) >= 0; });
-      host.appendChild(el("p", "wp-kicker", "// 收件箱 · " + shown.length + " 篇 · 已审 " +
-        shown.filter(function (f) { return entryFor(f.name); }).length + " 篇"));
-      if (!shown.length) { host.appendChild(el("p", "wp-muted", "（空）把文件拖到上方虚线区开始审核。")); return; }
-      shown.sort(function (a, b) { return b.name.localeCompare(a.name, "zh"); });
-      shown.forEach(function (f) {
-        var card = el("div", "rev-card");
-        var meta = parseMd("", f.name);
-        var st = entryFor(f.name);
-        var ch = chById(meta.id);
-        var head = el("div", "rev-head");
-        head.innerHTML = "<b>" + f.name + "</b>" +
-          "<span>" + (ch ? ch.title : (meta.id || "")) + "</span>" +
-          "<span class='wp-badge " + (st ? (st.status === "accepted" ? "b-solved" : "b-cat") : "b-pending") + "'>" +
-          (st ? (st.status === "accepted" ? "已通过 " + st.score + "分" : "已打回") : "待审核") + "</span>" +
-          "<span class='wp-muted'>" + Math.round((f.size || 0) / 1024) + " KB</span>";
-        card.appendChild(head);
-
-        var body = el("div", "rev-body");
-        body.hidden = true;
-        var loaded = false;
-        card.appendChild(body);
-
-        var acts = el("div", "rev-actions");
-        acts.appendChild(mkBtn("查看内容", "", function () {
-          body.hidden = !body.hidden;
-          if (loaded || body.hidden) return;
-          var m2 = boxFiles()[f.name];
-          body.textContent = (m2 && m2.content) || "（内容为空——点「☁ 拉取仓库」补全）";
-          loaded = true;
-        }));
-        var sc = mkInput("number", "分数"); sc.value = ch ? ch.score : 20;
-        var rs = mkInput("text", "打回理由（打回必填）"); rs.style.flex = "1"; rs.style.minWidth = "160px";
-        acts.appendChild(sc); acts.appendChild(rs);
-        acts.appendChild(mkBtn("通过", "is-primary", function () { decide(f.name, "accepted", parseInt(sc.value, 10) || (ch ? ch.score : 20), ""); }));
-        acts.appendChild(mkBtn("打回", "", function () {
-          if (!rs.value.trim()) { alert("打回必须写理由"); return; }
-          decide(f.name, "rejected", 0, rs.value.trim());
-        }));
-        acts.appendChild(mkBtn("编辑", "", function () {
-          var m3 = boxFiles(); var cur = (m3[f.name] || {}).content || "";
-          var nt = window.prompt("编辑 " + f.name + " 内容（确定保存进收件箱）：", cur);
-          if (nt === null) return;
-          m3[f.name] = { content: nt, at: new Date().toISOString() };
-          saveBoxFiles(m3); loadBox();
-        }));
-        acts.appendChild(mkBtn("删除", "", function () {
-          if (!confirm("从收件箱删除 " + f.name + "？")) return;
-          var m4 = boxFiles(); delete m4[f.name]; saveBoxFiles(m4); loadBox();
-        }));
-        card.appendChild(acts);
-        host.appendChild(card);
-      });
-      renderPublished();
+      var done = files.filter(function (f) { return entOf(f.name); }).length;
+      host.appendChild(el("p", "wp-kicker", "// 提交库 · " + files.length + " 篇 · 已审 " + done + " 篇 · 待审 " + (files.length - done) + " 篇"));
+      if (!shown.length) { host.appendChild(el("p", "wp-muted", files.length ? "没有匹配的文件。" : "还没有学生提交。")); return; }
+      shown.sort(function (a, b) { return String(b.updated || "").localeCompare(String(a.updated || "")); });
+      shown.forEach(function (f) { host.appendChild(card(f)); });
     }
 
-    function decide(name, status, score, reason) {
-      var meta = parseMd("", name);
-      if (!meta.id) { alert("文件名无法解析题号"); return; }
-      var ch = chById(meta.id);
-      entries = entries.filter(function (e) {
-        return !(e.id === meta.id && (e.name || "").toLowerCase() === (meta.name || "").toLowerCase());
-      });
-      entries.push({
-        id: meta.id, github: meta.github || "", name: meta.name || "?",
-        direction: ch ? ch.dir : "", status: status, score: score, reason: reason,
-        at: new Date().toISOString(),
-      });
-      saveEntries();
-      renderList();
+    function card(f) {
+      var c = el("div", "rev-card");
+      var st = entOf(f.name);
+
+      var head = el("div", "rev-head");
+      head.appendChild(el("b", null, f.name));
+      head.appendChild(el("span", "wp-badge b-cat", chOf(f.name) || "—"));
+      var badge = el("span", "wp-badge " + (st ? (st.status === "accepted" ? "b-solved" : "b-pending") : "b-pending"),
+        st ? (st.status === "accepted" ? "已通过 " + (st.score || 0) + " 分" : "已打回") : "待审核");
+      head.appendChild(badge);
+      head.appendChild(el("span", "wp-muted", (f.size || 0) + " B"));
+      if (st && st.reason) head.appendChild(el("span", "wp-muted", "理由：" + st.reason));
+      c.appendChild(head);
+
+      var view = el("pre", "rev-body", "（点「查看」加载正文）");
+      view.hidden = true;
+      c.appendChild(view);
+
+      var files2 = el("div", "rev-actions");
+      var viewBtn = el("button", "wp-btn is-mini", "查看");
+      viewBtn.type = "button";
+      viewBtn.onclick = async function () {
+        if (!view.hidden) { view.hidden = true; viewBtn.textContent = "查看"; return; }
+        viewBtn.textContent = "载入中…";
+        try {
+          var d = await api("/api/read?name=" + encodeURIComponent(f.name));
+          view.textContent = d.content;
+          view.hidden = false;
+          viewBtn.textContent = "收起";
+        } catch (err) {
+          view.textContent = "读取失败：" + err.message;
+          view.hidden = false;
+          viewBtn.textContent = "收起";
+        }
+      };
+
+      var score = el("input");
+      score.type = "number"; score.min = "0"; score.max = "100"; score.placeholder = "分数";
+      score.style.maxWidth = "88px";
+      score.value = st && st.score ? st.score : "";
+
+      var reason = el("input");
+      reason.type = "text"; reason.placeholder = "打回理由（可选）";
+      reason.style.flex = "1"; reason.style.minWidth = "150px";
+      reason.value = st && st.reason ? st.reason : "";
+
+      var pass = el("button", "wp-btn is-mini is-primary", "✓ 通过");
+      pass.type = "button";
+      pass.onclick = function () { decide(f.name, "accepted", Number(score.value) || 0, ""); };
+
+      var reject = el("button", "wp-btn is-mini", "✗ 打回");
+      reject.type = "button";
+      reject.onclick = function () { decide(f.name, "rejected", 0, reason.value.trim()); };
+
+      var edit = el("button", "wp-btn is-mini", "编辑");
+      edit.type = "button";
+      var save = el("button", "wp-btn is-mini is-primary", "保存修改");
+      save.type = "button"; save.hidden = true;
+
+      var ta = el("textarea", "rev-body");
+      ta.hidden = true;
+      c.appendChild(ta);
+
+      edit.onclick = async function () {
+        if (!ta.hidden) { ta.hidden = true; save.hidden = true; edit.textContent = "编辑"; return; }
+        ta.value = "载入中…"; ta.hidden = false; save.hidden = true;
+        try {
+          var d = await api("/api/read?name=" + encodeURIComponent(f.name));
+          ta.value = d.content; save.hidden = false; edit.textContent = "取消编辑";
+        } catch (err) { ta.value = "读取失败：" + err.message; }
+      };
+      save.onclick = async function () {
+        save.disabled = true; save.textContent = "保存中…";
+        try {
+          await api("/api/save", { method: "POST", body: { name: f.name, content: ta.value } });
+          ta.hidden = true; save.hidden = true; edit.textContent = "编辑";
+          view.textContent = ta.value; view.hidden = false;
+          save.textContent = "保存修改"; save.disabled = false;
+          alert("已保存");
+        } catch (err) { alert("保存失败：" + err.message); save.textContent = "保存修改"; save.disabled = false; }
+      };
+
+      var del = el("button", "wp-btn is-mini", "删除");
+      del.type = "button";
+      del.onclick = function () {
+        if (!confirm("确定删除 " + f.name + "？此操作会同时删除仓库里的文件。")) return;
+        api("/api/delete", { method: "POST", body: { name: f.name } })
+          .then(load)
+          .catch(function (err) { alert("删除失败：" + err.message); });
+      };
+
+      [viewBtn, score, pass, reason, reject, edit, save, del].forEach(function (x) { files2.appendChild(x); });
+      c.appendChild(files2);
+      return c;
     }
 
-    function renderPublished() {
-      $("#export").value = JSON.stringify({
-        updated: new Date().toISOString(),
-        note: "ZEROTHSEC 审核结果（教练管理页导出，勿手动改格式）",
-        entries: entries,
-      }, null, 2);
+    async function decide(name, status, score, reason) {
+      try {
+        await api("/api/decide", { method: "POST", body: { name: name, status: status, score: Number(score) || 0, reason: reason || "" } });
+        await load();
+      } catch (e) { alert("写入失败：" + e.message); }
     }
 
-    function mkBtn(t, cls, fn) { var b = el("button", "wp-btn is-mini " + (cls || ""), t); b.type = "button"; b.addEventListener("click", fn); return b; }
-    function mkInput(type, ph) { var i = document.createElement("input"); i.type = type; i.placeholder = ph; if (type === "number") i.style.maxWidth = "80px"; return i; }
-    function el(tag, cls, text) { var n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; }
+    $("#q").addEventListener("input", render);
+    $("#refresh").addEventListener("click", load);
 
-    /* ---------- 收件 ---------- */
-    function addFiles(fileList) {
-      var m = boxFiles(), n = 0;
-      var pending = fileList.length;
-      Array.prototype.forEach.call(fileList, function (f) {
-        if (!/\.(md|markdown|txt)$/i.test(f.name)) { if (--pending === 0) { saveBoxFiles(m); loadBox(); } return; }
-        var r = new FileReader();
-        r.onload = function () {
-          var text = String(r.result || "");
-          var meta = parseMd(text, f.name);
-          var key = meta.name && meta.id ? meta.name + "-" + meta.id + ".md" : f.name;
-          m[key] = { content: text, at: new Date().toISOString() };
-          if (--pending === 0) { if (saveBoxFiles(m)) n = 1; loadBox(); }
-        };
-        r.readAsText(f, "utf-8");
-      });
-      if (!fileList.length) return;
-    }
-    var drop = $("#drop");
-    ["dragenter", "dragover"].forEach(function (ev) { drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.add("on"); }); });
-    ["dragleave", "drop"].forEach(function (ev) { drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.remove("on"); }); });
-    drop.addEventListener("drop", function (e) { addFiles(e.dataTransfer.files); });
-    $("#picker").addEventListener("change", function () { addFiles(this.files); this.value = ""; });
-    $("#toggle-paste").addEventListener("click", function () { $("#paste-box").hidden = !$("#paste-box").hidden; });
-    $("#parse-paste").addEventListener("click", function () {
-      var text = $("#paste-area").value;
-      if (!text.trim()) return;
-      var meta = parseMd(text, "");
-      if (!meta.id) { alert("无法解析题号（需 ZSWP 头或标题含 <姓名>-<题号>.md）"); return; }
-      var m = boxFiles();
-      m[(meta.name || "?") + "-" + meta.id + ".md"] = { content: text, at: new Date().toISOString() };
-      saveBoxFiles(m); $("#paste-area").value = ""; $("#paste-box").hidden = true; loadBox();
-    });
-
-    /* ---------- AI 辅助审查接口 ---------- */
-    $("#ai-copy").addEventListener("click", function () {
-      var pending = files.filter(function (f) { return !entryFor(f.name); });
+    /* AI 辅助：把待审内容打包复制，审完把 JSON 结论贴回来，一键写入 */
+    $("#ai-copy").addEventListener("click", async function () {
+      var btn = this;
+      var pending = files.filter(function (f) { return !entOf(f.name); });
       if (!pending.length) { alert("没有待审提交"); return; }
-      var m = boxFiles();
-      var lines = ["# ZEROTHSEC Writeup 待审包", "",
-        "请逐篇评审以下 Writeup，评估是否真实、步骤是否清晰、结论是否正确。",
-        "只输出结论行，每行一个 JSON，不要任何其他文字：",
-        '{"name":"姓名","id":"题号","status":"accepted 或 rejected","score":分数,"reason":"一句评语或打回理由"}',
-        "", "---", ""];
-      pending.forEach(function (f) {
-        var meta = parseMd("", f.name);
-        var ch = chById(meta.id);
-        lines.push("## " + f.name + "（题目：" + (ch ? ch.title : "?") + "，满分 " + (ch ? ch.score : "?") + "）");
-        lines.push("```md"); lines.push(((m[f.name] || {}).content || "（内容为空，请先拉取仓库）").slice(0, 6000)); lines.push("```"); lines.push("");
-      });
-      var pkg = lines.join("\n");
-      var b = this;
-      if (navigator.clipboard) navigator.clipboard.writeText(pkg).then(function () {
-        b.textContent = "已复制 " + pending.length + " 篇 ✓";
-        setTimeout(function () { b.textContent = "🤖 复制待审 AI 包"; }, 2000);
-      });
-      else window.prompt("手动复制：", pkg);
+      btn.disabled = true; btn.textContent = "打包中…";
+      var parts = [];
+      for (var i = 0; i < pending.length; i++) {
+        var f = pending[i];
+        try {
+          var d = await api("/api/read?name=" + encodeURIComponent(f.name));
+          parts.push("=== " + f.name + " ===\n" + d.content);
+        } catch (e) { /* 跳过读取失败 */ }
+      }
+      var pkg = "# ZEROTHSEC Writeup 待审包\n\n" +
+        "请逐篇评审：是否真实完成题目、步骤是否可复现、flag 是否与题目一致、有无抄袭。\n" +
+        "只输出结论行，每行一个 JSON，不要任何其他文字：\n" +
+        '{"name":"文件名.md","status":"accepted","score":0,"reason":"一句话理由"}\n\n' + parts.join("\n\n");
+      try {
+        await navigator.clipboard.writeText(pkg);
+        btn.textContent = "已复制 " + parts.length + " 篇 ✓";
+      } catch (e) { prompt("复制以下内容：", pkg); btn.textContent = "🤖 复制待审 AI 包"; }
+      setTimeout(function () { btn.textContent = "🤖 复制待审 AI 包"; btn.disabled = false; }, 2200);
     });
-    $("#ai-import").addEventListener("click", function () {
+
+    $("#ai-import").addEventListener("click", async function () {
       var t = window.prompt("粘贴 AI 输出的 JSON 结论（每行一个）：", "");
       if (!t) return;
-      var n = 0;
-      t.split(/\r?\n/).forEach(function (line) {
-        line = line.trim();
-        if (!line || line.indexOf("{") !== 0) return;
+      var n = 0, fails = 0;
+      var lines = t.split(/\r?\n/);
+      for (var i = 0; i < lines.length; i++) {
+        var line = lines[i].trim();
+        if (!line || line.charAt(0) !== "{") continue;
         try {
           var o = JSON.parse(line);
-          if (!o.id) return;
-          entries = entries.filter(function (e) {
-            return !(e.id === o.id && (e.name || "").toLowerCase() === String(o.name || "").toLowerCase());
-          });
-          entries.push({
-            id: o.id, github: "", name: o.name || "?",
-            direction: (chById(o.id) || {}).dir || "",
-            status: o.status === "rejected" ? "rejected" : "accepted",
-            score: parseInt(o.score, 10) || 0, reason: o.reason || "",
-            at: new Date().toISOString(),
+          if (!o.name) continue;
+          await api("/api/decide", {
+            method: "POST",
+            body: {
+              name: o.name,
+              status: o.status === "rejected" ? "rejected" : "accepted",
+              score: Number(o.score) || 0,
+              reason: o.reason || ""
+            }
           });
           n++;
-        } catch (e) { /* 跳过非 JSON 行 */ }
-      });
-      saveEntries();
-      alert("导入 " + n + " 条结论。核对后点「复制发布包」交给助手发布。");
-      renderList();
+        } catch (e) { fails++; }
+      }
+      await load();
+      alert("导入成功 " + n + " 条" + (fails ? "，失败 " + fails + " 条" : "") + "。");
     });
 
-    $("#copy-out").addEventListener("click", function () {
-      var b = this;
-      navigator.clipboard.writeText($("#export").value).then(function () {
-        b.textContent = "已复制 ✓ 发给助手说「发布结果」即可";
-        setTimeout(function () { b.textContent = "复制发布包（results.json）"; }, 3000);
+    /* 密钥门 */
+    if (!KEY) {
+      $("#gate").hidden = false;
+      $("#key-save").addEventListener("click", function () {
+        var v = $("#key-in").value.trim();
+        if (!v) return;
+        KEY = v; saveKey(v); $("#gate").hidden = true; load();
       });
-    });
-    $("#dl-out").addEventListener("click", function () {
-      var blob = new Blob([$("#export").value], { type: "application/json" });
-      var a = document.createElement("a");
-      a.href = URL.createObjectURL(blob); a.download = "results.json"; a.click();
-      setTimeout(function () { URL.revokeObjectURL(a.href); }, 800);
-    });
-    $("#refresh").addEventListener("click", loadBox);
-    $("#q").addEventListener("input", renderList);
-    $("#sync-btn").addEventListener("click", syncRemote);
+    }
 
-    /* ---------- 初始化 ---------- */
-    window.ZSBank.loadBank().then(function (b) { bank = b; renderList(); }).catch(function (e) { console.warn(e); });
-    loadBox();
+    load();
   })();
   </script>
 </body>

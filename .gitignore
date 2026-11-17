@@ -33,3 +33,6 @@ tools/bank_plaintext.json
 
 # CTF² 平台登录 token（教练本地专用，禁止提交）
 tools/.ctf2_token
+
+# 提交服务运行配置（含 GitHub 令牌，禁止提交）
+tools/submit-server/config.local.json

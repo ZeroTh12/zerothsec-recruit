@@ -1,0 +1,6 @@
+{
+  "name": "zs-submit-server",
+  "private": true,
+  "type": "commonjs",
+  "main": "server.js"
+}

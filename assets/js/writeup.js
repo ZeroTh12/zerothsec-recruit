@@ -5,12 +5,11 @@
    流程：
      - 登录门禁：GitHub 用户名 + 真实姓名 + 四条战线方向（存本机浏览器），
        登录后才显示题目/提交、排行榜、说明
-     - 题目：CTF² 平台 BUUCTF 真题；星期制批次（batches.json：start + weekly），
-       第 N 周 = 题库按 难度→类别→题号 排序切片，周日 23:59:59 截止，下周自动换新题
-     - 提交：题卡内「上传 .md 文件」控件（规范命名 <姓名>-<题号>.md），
-       内容校验后存入本机提交档案（localStorage）；文件本体发 QQ 群给教练。
-       纯静态站无服务器，文件无法自动上传到网站——审核在教练的隐藏审核页完成
-     - 结果：教练在隐藏审核页录入 通过/打回 → 发布 assets/data/results.json →
+     - 题目：CTF² 平台 BUUCTF 真题；每日发题（batches.json：start + daily），
+       每天 0 点解锁，一周一个周期（daily×7 题），周日 23:59:59 截止，下周自动换新题
+     - 提交：题卡内「上传 .md 文件」控件（规范命名 <姓名>-<题号>.md）→ 直接经中转服务
+       写入仓库 submissions/（服务端持令牌，学生与教练都不接触 GitHub、也不用手动转发）
+     - 结果：教练在隐藏审核页点 通过/打回 → 结论即刻写入 assets/data/results.json →
        学生端题卡显示结果与排行榜（看不到审核过程与审核页）
    ========================================================================== */
 (function () {
@@ -31,7 +30,7 @@
   var PROFILE_KEY = "zs-wp-profile";
   var SUBMIT_KEY = "zs-wp-submissions";
   var RESULTS_URL = "assets/data/results.json";
-  var QQ_HINT = "把该 .md 文件发到招新答疑 QQ 群（群二维码见 02 招新页·联系我们），教练在群里收文件";
+  var QQ_HINT = "上传即可，无需手动转发；若上传失败请稍后重试或联系教练";
 
   /* ---------- 小工具 ---------- */
   function $(sel, root) { return (root || document).querySelector(sel); }
@@ -153,61 +152,33 @@
   }
 
   /* ==========================================================================
-     GitHub Contents API：把 writeup 文件直接存进仓库 submissions/ 目录
-     （纯静态站的"服务器"就是 GitHub 仓库本身；写入需 wp-config 里的细粒度令牌）
+     提交落库：经中转服务写入仓库 submissions/
+     （令牌只在服务端，学生端与页面里都不出现令牌）
      ========================================================================== */
   var serverNames = null; // submissions/ 目录文件名缓存
-  function ghApi(path, opts) {
-    var t = (CFG.token || "").trim();
-    var h = { Accept: "application/vnd.github+json" };
-    if (t) h.Authorization = "Bearer " + t;
-    return fetch("https://api.github.com" + path,
-      Object.assign({ headers: h }, opts || {}));
-  }
-  function b64utf8(str) {
-    var bytes = new TextEncoder().encode(str);
-    var bin = "";
-    for (var i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
-    return btoa(bin);
-  }
   function subDir() { return CFG.subDir || "submissions"; }
+  // 服务器地址取自 wp-config.js 的 relay（必须配置，学生上传靠它落库）
   function relayUrl() { return (CFG.relay || "").replace(/\/+$/, ""); }
-  function canServerSubmit() { return !!(relayUrl() || CFG.token); }
-  function subPath(fname) {
-    return "/repos/" + CFG.repo + "/contents/" + subDir() + "/" + encodeURIComponent(fname);
-  }
+  function canServerSubmit() { return !!relayUrl(); }
   async function serverSubmit(fname, content) {
-    if (!canServerSubmit()) { var e = new Error("no-relay"); e.code = "no-token"; throw e; }
-    if (relayUrl()) {
-      var r = await fetch(relayUrl() + "/api/submit", { method: "POST", body: JSON.stringify({ name: fname, content: content }) });
-      if (!r.ok) { var d = await r.json().catch(function () { return {}; }); throw new Error(d.error || ("HTTP " + r.status)); }
-      return true;
+    if (!canServerSubmit()) { var e = new Error("提交服务未配置"); throw e; }
+    var r = await fetch(relayUrl() + "/api/submit", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ name: fname, content: content })
+    });
+    if (!r.ok) {
+      var d = await r.json().catch(function () { return {}; });
+      throw new Error(d.error || ("HTTP " + r.status));
     }
-    var sha = null;
-    try {
-      var g = await ghApi(subPath(fname));
-      if (g.ok) sha = (await g.json()).sha;
-    } catch (err) { /* 新文件 */ }
-    var body = { message: "writeup: " + fname, content: b64utf8(content) };
-    if (sha) body.sha = sha;
-    var r2 = await ghApi(subPath(fname), { method: "PUT", body: JSON.stringify(body) });
-    if (!r2.ok) throw new Error("GitHub 写入失败 HTTP " + r2.status);
     return true;
   }
   async function serverSubNames(force) {
     if (serverNames && !force) return serverNames;
     try {
-      if (relayUrl()) {
-        var r = await fetch(relayUrl() + "/api/list");
-        if (!r.ok) return (serverNames = []);
-        return (serverNames = (await r.json()).map(function (f) { return f.name; }));
-      }
-      var r2 = await ghApi("/repos/" + CFG.repo + "/contents/" + subDir());
-      if (!r2.ok) return (serverNames = []);
-      var d = await r2.json();
-      return (serverNames = (Array.isArray(d) ? d : [])
-        .map(function (f) { return f.name; })
-        .filter(function (n) { return n !== "README.md"; }));
+      var r = await fetch(relayUrl() + "/api/list");
+      if (!r.ok) return (serverNames = []);
+      return (serverNames = (await r.json()).map(function (f) { return f.name; }));
     } catch (e) { return (serverNames = []); }
   }
   function expectedFname(ch) { return profile.name + "-" + ch.id + ".md"; }
@@ -275,7 +246,7 @@
     var zone = el("div", "wp-submit-zone");
 
     var expectName = expectedFname(ch);
-    zone.appendChild(el("p", "wp-hint", "规范命名：" + expectName + "。上传后存入本站提交箱（本机），并把同一个文件发到招新答疑 QQ 群，教练在群里收齐审核。"));
+    zone.appendChild(el("p", "wp-hint", "规范命名：" + expectName + "。点「上传 .md 提交」后直接进入本站提交库，教练在审核台即可看到并批阅，无需再转发给任何人。"));
 
     var row = el("div", "wp-row");
     row.style.flexWrap = "wrap";
@@ -292,20 +263,22 @@
       var reader = new FileReader();
       reader.onload = async function () {
         var text = String(reader.result || "");
-        upBtn.textContent = "提交中…";
         saveSubmission(ch, f.name, text);
-        var online = false;
+        upBtn.disabled = true;
+        upBtn.textContent = "提交中…";
+        var online = false, errMsg = "";
         try {
-          if (canServerSubmit()) {
-            await serverSubmit(expectedFname(ch), text);
-            serverNames = null;
-            await serverSubNames(true);
-            online = true;
-          }
-        } catch (err) { /* 走兜底 */ }
+          await serverSubmit(expectedFname(ch), text);
+          serverNames = null;
+          await serverSubNames(true);
+          online = true;
+        } catch (err) {
+          errMsg = err && err.message ? err.message : "网络异常";
+        }
+        upBtn.disabled = false;
         lastSubmitOnline = online;
-        lastSubmitErr = online ? "" : (canServerSubmit() ? "写入失败" : "站点未开启直连入库");
-        upBtn.textContent = online ? "已入库 ✓" : "已存档 ✓";
+        lastSubmitErr = online ? "" : errMsg;
+        upBtn.textContent = online ? "已入库 ✓" : "重试上传";
         refresh();
       };
       reader.readAsText(f, "utf-8");
@@ -349,7 +322,7 @@
     if (serverHas) {
       stLine = el("p", "wp-msg ok", "✓ 已入库（submissions/" + expectName + "），等待教练审核。重新上传会覆盖旧版。");
     } else if (sub) {
-      stLine = el("p", "wp-msg", (lastSubmitErr ? lastSubmitErr + "，" : "") + "已存本机档案。请把 " + expectName + " 发到招新答疑 QQ 群，教练会代入库。");
+      stLine = el("p", "wp-msg", (lastSubmitErr ? "上传失败：" + lastSubmitErr + "。" : "尚未上传成功。") + "可点「重试上传」重新提交。");
     } else {
       stLine = el("p", "wp-muted", "尚未提交。");
     }
@@ -636,26 +609,16 @@
       "2. 每日发题制：**每天 0 点解锁 3 道新题**，一周为一个周期（共 21 题），周日 23:59 截止，下周自动换新题；题目按 易→难 排列，绝不重题\n" +
       "3. 点题目卡「去平台做题 ↗」在 CTF² 平台解题拿 flag（需注册 CTF²/MYDAS 账号）\n" +
       "4. 写 Writeup：点「下载空模板」→ 按模板写 → 保存为 <姓名>-<题号>.md\n" +
-      "5. 题卡内点「上传 .md 提交」→ 存入本站提交箱（本机可回看）+ 把同一个文件发到招新答疑 QQ 群，教练在群里收齐审核\n" +
+      "5. 题卡内点「上传 .md 提交」→ 文件直接进入本站提交库，教练当场能看到\n" +
       "6. 回本页看结果：通过计分上榜；打回看理由，改完重新上传\n" +
       "7. 「我的提交」标签查看你已入库的全部 Writeup 与审核状态"));
     host.appendChild(box);
 
-    var box2 = el("div", "wp-auth");
-    box2.appendChild(el("h3", "wp-task-title", "教练 · 审核（隐藏页，地址不外发）"));
-    box2.appendChild(el("p", "wp-muted",
-      "1. 在 QQ 群收齐本周 <姓名>-<题号>.md 文件\n" +
-      "2. 打开教练审核页（站内无链接，地址仅教练知晓），把文件整批拖入\n" +
-      "3. 逐题看全文，可把内容粘贴给 AI 辅助评审拿分数建议 → 自己定夺\n" +
-      "4. 录入 通过(分数)/打回(理由) → 「复制发布包」发给助手（或运行发布命令）→ 学生端即生效\n" +
-      "5. 学生端自动显示结果与排行榜；发题是每日自动的，改 batches.json 的 daily 即可调每天题量（一周 = daily×7 题，下周自动换下一段，绝不重题）"));
-    host.appendChild(box2);
-
     var box3 = el("div", "wp-auth");
-    box3.appendChild(el("h3", "wp-task-title", "提交存在哪里（如实说明）"));
+    box3.appendChild(el("h3", "wp-task-title", "提交存在哪里"));
     box3.appendChild(el("p", "wp-muted",
-      "本站是纯静态网站，没有自建服务器：题卡「上传 .md 提交」会把 Writeup 存入你浏览器的提交箱（防丢、可回看、显示审核状态），" +
-      "文件本体请发到招新答疑 QQ 群——教练在管理页统一收齐、AI 辅助审核，审核结果发布后回到本页可看到 通过/打回。"));
+      "Writeup 上传后由本站服务直接存进审核库（仓库 submissions/ 目录），只有教练看得到，其他同学看不到。" +
+      "教练在审核台浏览全文、批注、打分，通过或打回后，你回到本页刷新即可看到结果与排行榜名次。"));
     host.appendChild(box3);
   }
 
