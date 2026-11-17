@@ -27,3 +27,6 @@ pnpm-debug.log*
 Thumbs.db
 .vscode/
 .idea/
+
+# 题库明文答案（教练本地留档，禁止提交）
+tools/bank_plaintext.json

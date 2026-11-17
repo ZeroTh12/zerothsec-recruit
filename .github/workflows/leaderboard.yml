@@ -1,0 +1,38 @@
+name: Leaderboard
+
+# writeup Issue 变动 → 重算加密排行榜 → 自动提交回仓库
+on:
+  issues:
+    types: [opened, edited, labeled, unlabeled, closed, reopened]
+  workflow_dispatch:
+
+permissions:
+  issues: read
+  contents: write
+
+jobs:
+  aggregate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Aggregate writeup issues
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python tools/aggregate.py
+
+      - name: Commit leaderboard
+        run: |
+          git config user.name "zs-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add assets/data/leaderboard.enc.js
+          if git diff --cached --quiet; then
+            echo "no changes"
+          else
+            git commit -m "chore: leaderboard update [skip ci]"
+            git push
+          fi

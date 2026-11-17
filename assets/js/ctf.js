@@ -155,7 +155,7 @@
     if (e.key === "Escape") closeSolve();
   }
 
-  function showSolve(title) {
+  function showSolve(title, challengeId) {
     closeSolve();
 
     const layer = el("div", "solve-layer");
@@ -192,6 +192,14 @@
     card.appendChild(el("div", "solve-points", "+1 分"));
     card.appendChild(name);
 
+    if (challengeId) {
+      const wpLink = el("a", "solve-writeup");
+      wpLink.href = "writeup.html#/tasks";
+      wpLink.textContent = "提交 Writeup → 计分上榜";
+      wpLink.addEventListener("click", (e) => e.stopPropagation());
+      card.appendChild(wpLink);
+    }
+
     const canvas = el("canvas", "solve-canvas");
 
     layer.appendChild(backdrop);
@@ -209,7 +217,7 @@
 
     layer.addEventListener("click", closeSolve);
     document.addEventListener("keydown", onSolveKey);
-    solveTimer = window.setTimeout(closeSolve, 3600);
+    solveTimer = window.setTimeout(closeSolve, 7000);
   }
 
   /* ======================================================================
@@ -964,7 +972,8 @@
       card.classList.add("is-solved");
       setMsg(msg, "ACCEPTED // 已记录，下次打开将换题", "ok");
       updateProgress();
-      showSolve(slot.challenge.title);
+      showSolve(slot.challenge.title, slot.challenge.id);
+      reportSolve(slot.challenge.id);
     } else {
       setMsg(msg, "ACCESS DENIED // 这个 flag 不属于你的本轮题目", "bad");
       shake(card);
@@ -981,6 +990,16 @@
       window.localStorage.removeItem("range_proof");
     } catch (err) {
       /* ignore */
+    }
+  }
+
+  /* 上报解题进度到提交审核系统（未登录/离线时静默忽略） */
+  function reportSolve(challengeId) {
+    try {
+      const wp = window.ZerothSecWriteup;
+      if (wp && typeof wp.recordSolve === "function") wp.recordSolve(challengeId);
+    } catch (err) {
+      /* 忽略：提交系统不可用时靶场功能不受影响 */
     }
   }
 

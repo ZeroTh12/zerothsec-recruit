@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-page="04" data-label="提交 / WRITEUP">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+  <meta http-equiv="Pragma" content="no-cache">
+  <meta http-equiv="Expires" content="0">
+  <meta name="theme-color" content="#070907">
+  <title>提交审核 · Writeup 与排行榜 | ZEROTHSEC 网络安全工作室</title>
+  <meta name="description" content="ZEROTHSEC 招新考核提交系统：靶场解出题目后提交 Writeup，教练审核打分，实时排行榜与完成度追踪。">
+  <link rel="icon" href="assets/img/favicon.png" type="image/png" sizes="64x64">
+  <link rel="stylesheet" href="assets/css/main.css?v=20261105">
+  <link rel="stylesheet" href="assets/css/motion.css?v=20261105">
+  <link rel="stylesheet" href="assets/css/at-template.css?v=20261109">
+  <link rel="stylesheet" href="assets/css/writeup.css?v=20261117">
+  <script>
+    document.documentElement.classList.add('js', 'motion-pending');
+    setTimeout(function () {
+      var d = document.documentElement;
+      if (!d.classList.contains('is-entered')) {
+        d.classList.add('is-entered');
+        d.classList.remove('motion-pending', 'phase-arriving', 'phase-out');
+        window.dispatchEvent(new Event('zerothsec:entered'));
+      }
+    }, 2600);
+  </script>
+</head>
+<body>
+  <a class="skip-link" href="#main">跳转到主要内容</a>
+  <div class="cursor-dot" aria-hidden="true"></div>
+
+  <header class="site-header">
+    <div class="wrap header-inner">
+      <a class="brand" href="index.html" aria-label="ZEROTHSEC 首页">
+        <span class="brand-mark">
+          <img src="assets/img/rjb-logo.png" alt="工作室徽标" width="46" height="46">
+        </span>
+        <span class="brand-text">
+          <span class="brand-name">ZEROTHSEC</span>
+          <span class="brand-sub">江工职院 · 网络安全工作室</span>
+        </span>
+      </a>
+
+      <nav class="site-nav" aria-label="主导航">
+        <a href="index.html"><span>00</span>首页</a>
+        <a href="major.html"><span>01</span>专业</a>
+        <a href="recruit.html"><span>02</span>招新</a>
+        <a href="ctf.html"><span>03</span>CTF</a>
+        <a href="writeup.html" aria-current="page"><span>04</span>提交</a>
+      </nav>
+
+      <div class="head-actions">
+        <span class="status"><i class="status-dot"></i>SUBMIT: LIVE</span>
+        <a class="btn btn-small" href="#auth-section" id="wp-login-btn">登录 / 注册<span class="btn-arrow">↗</span></a>
+        <button class="nav-toggle" type="button" aria-label="打开菜单" aria-expanded="false">
+          <span></span><span></span><span></span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <div class="mobile-nav" aria-hidden="true">
+    <nav aria-label="移动端导航">
+      <a href="index.html"><span>00</span>首页</a>
+      <a href="major.html"><span>01</span>专业档案</a>
+      <a href="recruit.html"><span>02</span>招新令</a>
+      <a href="ctf.html"><span>03</span>攻防演练</a>
+      <a href="writeup.html"><span>04</span>提交审核</a>
+    </nav>
+    <div class="mobile-nav-foot">
+      <span>ZEROTHSEC — JGZY<br>WRITEUP 2026</span>
+      <span>STATUS: LIVE<br>GITHUB / ENCRYPTED</span>
+    </div>
+  </div>
+
+  <main id="main">
+    <!-- PAGE HERO -->
+    <section class="page-hero">
+      <div class="wrap page-hero-inner">
+        <div class="page-kicker">
+          <span class="file">FILE NO. 04 / WRITEUP &amp; REVIEW</span>
+          <span>解出题目 → 提交 Writeup → 教练审核 → 计分上榜</span>
+        </div>
+        <h1 class="page-title">
+          写下来，<br>
+          <span class="accent">才算真的解出来。</span>
+        </h1>
+        <p class="page-deck">
+          在 <a href="ctf.html">攻防演练（03）</a>和<strong>加密题库</strong>里解题，回到这里提交你的 <strong>Writeup</strong>。
+          提交走 GitHub Issues（数据存 GitHub），教练打标签审核，<strong>排行榜</strong>由 Actions 自动加密生成、实时更新。
+        </p>
+        <div class="page-meta">
+          <span>SUBMIT VIA GITHUB</span>
+          <span>REVIEW BY LABELS</span>
+          <span>LEADERBOARD AUTO</span>
+          <span>ENCRYPTED BANK</span>
+        </div>
+        <span class="page-watermark" aria-hidden="true">04</span>
+      </div>
+    </section>
+
+    <!-- IDENTITY / 身份登记 -->
+    <section class="content-section wp-section" id="auth-section">
+      <div class="wrap">
+        <span class="kicker">ACCESS / 身份登记</span>
+
+        <div id="wp-profile-box">
+          <div class="wp-auth">
+            <h3 class="wp-auth-title">登录 / 注册<span class="wp-auth-sub">ZS-ID · 本机身份 · 无需密码</span></h3>
+
+            <div class="wp-auth-tabs" role="tablist" aria-label="登录或注册">
+              <button type="button" id="wp-tab-register" class="is-on" aria-selected="true">注册 / 登记身份</button>
+              <button type="button" id="wp-tab-me" aria-selected="false">我的身份</button>
+            </div>
+
+            <!-- 注册 / 登记面板 -->
+            <div id="wp-auth-register">
+              <p class="wp-muted" style="margin-bottom:14px;">
+                无需注册账号——用你的 <strong>GitHub 账号</strong>即可。这里登记的信息保存在你自己的浏览器里，
+                每次提交 Writeup 时自动写入 GitHub Issue（队员身份 = GitHub 账号，教练权限 = 仓库写权限）。
+              </p>
+              <form id="wp-profile-form" autocomplete="on">
+                <div class="wp-row">
+                  <div class="wp-field" style="flex:1;">
+                    <label for="pf-github">GitHub 用户名（必填，排行榜与审核核对用）</label>
+                    <input id="pf-github" name="github" type="text" placeholder="例如：ZeroTh12" required>
+                  </div>
+                  <div class="wp-field" style="flex:1;">
+                    <label for="pf-name">真实姓名（必填，规范命名 &lt;姓名&gt;-&lt;题号&gt;.md）</label>
+                    <input id="pf-name" name="name" type="text" placeholder="例如：张三" required>
+                  </div>
+                </div>
+                <div class="wp-field">
+                  <label for="pf-dir">研究方向（选定后按方向发题与批次，不可随意更改）</label>
+                  <select id="pf-dir" name="direction" required>
+                    <option value="">—— 选择方向 ——</option>
+                    <option value="websec">Web 安全（含密码学）</option>
+                    <option value="rpwn">逆向与 Pwn</option>
+                    <option value="forensics">数字取证</option>
+                    <option value="defense">防守与运营</option>
+                  </select>
+                  <p class="wp-hint">方向对应工作室四条战线，题库按方向池发放（从 EASY 到 HARD 递进），每批次有截止倒计时。审核台仅教练账号可见。</p>
+                </div>
+                <p class="wp-msg" id="wp-profile-msg"></p>
+                <button class="wp-btn is-primary" type="submit">登记身份，进入系统 →</button>
+                <button class="wp-btn" type="button" id="wp-profile-clear">清除本机身份</button>
+              </form>
+            </div>
+
+            <!-- 我的身份面板（登录后的身份卡，由 JS 渲染） -->
+            <div id="wp-auth-me" hidden></div>
+          </div>
+        </div>
+
+        <!-- 功能标签 -->
+        <div id="wp-tabs">
+          <div class="wp-row" style="margin-bottom:26px;">
+            <nav class="wp-row" aria-label="系统导航">
+              <button class="wp-btn is-mini wp-tab is-on" type="button" data-view="tasks">题目 / 提交</button>
+              <button class="wp-btn is-mini wp-tab" type="button" data-view="rank">排行榜</button>
+              <button class="wp-btn is-mini wp-tab" type="button" data-view="review">审核台</button>
+              <button class="wp-btn is-mini wp-tab" type="button" data-view="guide">说明</button>
+            </nav>
+            <span class="wp-muted" id="wp-whoami"></span>
+          </div>
+        </div>
+
+        <!-- 各视图 -->
+        <div id="wp-views">
+          <div class="wp-view" id="wp-view-tasks">
+            <div class="wp-section-body"></div>
+          </div>
+          <div class="wp-view" id="wp-view-rank" hidden>
+            <div class="wp-section-body"></div>
+          </div>
+          <div class="wp-view" id="wp-view-review" hidden>
+            <div class="wp-section-body"></div>
+          </div>
+          <div class="wp-view" id="wp-view-guide" hidden>
+            <div class="wp-section-body"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="wrap">
+      <span class="footer-word" aria-hidden="true">ZEROTHSEC</span>
+      <div class="footer-grid">
+        <div class="footer-brand">
+          <div class="footer-title">ZEROTHSEC / 网络安全工作室</div>
+          <p>江工职院网络安全工作室。以攻防实践为轴，做长期主义的技术训练。</p>
+        </div>
+        <div>
+          <div class="footer-title">CONTACT</div>
+          <div class="footer-contact">
+            <a href="mailto:19170040127@189.cn">19170040127@189.cn</a>
+          </div>
+        </div>
+        <div>
+          <div class="footer-title">INDEX</div>
+          <div class="footer-links">
+            <a href="index.html">首页</a>
+            <a href="major.html">专业档案</a>
+            <a href="recruit.html">招新令</a>
+            <a href="ctf.html">攻防演练</a>
+            <a href="writeup.html">提交审核</a>
+            <a href="recruit.html#contact">联系我们</a>
+          </div>
+        </div>
+      </div>
+      <div class="footer-bottom">
+        <span>© <span data-year>2026</span> ZEROTHSEC · 江工职院</span>
+        <span>Writeup 与得分数据受权限保护</span>
+        <span class="ok">TRUST NOTHING / VERIFY EVERYTHING</span>
+      </div>
+    </div>
+  </footer>
+
+  <script src="assets/js/wp-config.js?v=20261117b"></script>
+  <script src="assets/js/bank.js?v=20261117b"></script>
+  <script src="assets/data/bank.enc.js?v=20261117"></script>
+  <script src="assets/js/writeup.js?v=20261117b"></script>
+  <script src="assets/js/motion.js?v=20261105"></script>
+  <script src="assets/js/main.js?v=20261105"></script>
+</body>
+</html>

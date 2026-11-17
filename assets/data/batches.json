@@ -1,0 +1,15 @@
+{
+  "_说明": "教练发批次就改这个文件（GitHub 网页端直接编辑保存即生效）。顶层 key 是四条战线：websec / rpwn / forensics / defense。ranges 内是题库类别的题号区间（web:[1,5] 表示 WEB-01..WEB-05）。加批次往数组追加，batch 递增；下一批用更高题号或更高难度区间，实现由易到难。deadline 为 ISO 8601 含时区。",
+  "websec": [
+    { "batch": 1, "deadline": "2026-12-01T23:59:59+08:00", "note": "第一批 · EASY 起步", "ranges": { "web": [1, 5], "crypto": [1, 5] } }
+  ],
+  "rpwn": [
+    { "batch": 1, "deadline": "2026-12-01T23:59:59+08:00", "note": "第一批 · EASY 起步", "ranges": { "reverse": [1, 5], "pwn": [1, 5] } }
+  ],
+  "forensics": [
+    { "batch": 1, "deadline": "2026-12-01T23:59:59+08:00", "note": "第一批 · EASY 起步", "ranges": { "misc": [1, 10] } }
+  ],
+  "defense": [
+    { "batch": 1, "deadline": "2026-12-01T23:59:59+08:00", "note": "第一批 · 蓝队组合（Web 日志 + 杂项分析）", "ranges": { "web": [6, 10], "misc": [11, 20] } }
+  ]
+}
