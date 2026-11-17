@@ -8,7 +8,7 @@
   <title>ZS Console</title>
   <link rel="stylesheet" href="assets/css/main.css?v=20261105">
   <link rel="stylesheet" href="assets/css/at-template.css?v=20261109">
-  <link rel="stylesheet" href="assets/css/writeup.css?v=20261117h">
+  <link rel="stylesheet" href="assets/css/writeup.css?v=20261117j">
   <style>
     .rev-card { border: 1px solid var(--line); background: var(--ink-2); padding: 14px 16px; margin-bottom: 14px; }
     .rev-head { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 8px; }
@@ -18,7 +18,8 @@
     .toolbar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin: 16px 0; }
     .toolbar input[type=search] { flex: 1; min-width: 200px; background: #050505; color: var(--bone); border: 1px solid var(--line); padding: 9px 12px; font: 400 12px var(--font-mono); }
     .secret-note { color: var(--red); font: 600 12px/1.7 var(--font-mono); }
-    .tok-warn { color: var(--amber); font: 400 12px/1.7 var(--font-mono); }
+    .drop-zone { border: 1px dashed var(--line-strong); padding: 26px; text-align: center; color: var(--muted); margin: 14px 0; }
+    .drop-zone.on { border-color: var(--acid); color: var(--acid); }
   </style>
 </head>
 <body>
@@ -40,39 +41,41 @@
   <main id="main">
     <section class="content-section wp-section">
       <div class="wrap">
-        <span class="kicker">WRITEUP 管理 / 增删改查 + 审核</span>
-        <p class="secret-note">此页地址请勿外发。学生提交的 Writeup 统一存放在仓库 submissions/ 目录，本页自动读取。</p>
+        <span class="kicker">WRITEUP 管理 / 收件箱 + 增删改查 + AI 辅助审核</span>
+        <p class="secret-note">此页地址请勿外发。收到的 .md 拖进下方收件箱即可审核；数据缓存在本浏览器，结论不会丢。</p>
+
+        <div class="drop-zone" id="drop">
+          把 QQ 群收到的 <b>&lt;姓名&gt;-&lt;题号&gt;.md</b> 文件拖到这里（可多选）·
+          <label style="color:var(--acid);cursor:pointer;">或选择文件<input type="file" id="picker" multiple accept=".md,.markdown,.txt" style="display:none"></label>
+          · 也可 <button class="wp-btn is-mini" type="button" id="toggle-paste" style="display:inline-block;">粘贴文本</button>
+        </div>
+        <div id="paste-box" hidden class="wp-field" style="margin-bottom:14px;">
+          <textarea id="paste-area" class="wp-writeup-area" rows="5" placeholder="粘贴 Writeup 文本（含 ZSWP 头，或标题行 <姓名>-<题号>.md）"></textarea>
+          <button class="wp-btn is-mini" type="button" id="parse-paste">解析并加入收件箱</button>
+        </div>
 
         <div class="toolbar">
-          <input type="search" id="q" placeholder="搜索：姓名 / 题号 / GitHub…">
-          <button class="wp-btn is-mini" type="button" id="refresh">⟳ 刷新列表</button>
-          <button class="wp-btn is-mini" type="button" id="import-btn">＋ 代入库 / 拖入文件</button>
+          <input type="search" id="q" placeholder="搜索：姓名 / 题号…">
+          <button class="wp-btn is-mini" type="button" id="refresh">⟳ 刷新</button>
           <button class="wp-btn is-mini" type="button" id="ai-copy">🤖 复制待审 AI 包</button>
           <button class="wp-btn is-mini" type="button" id="ai-import">📥 导入 AI 结论</button>
-          <input type="file" id="picker" multiple accept=".md,.markdown,.txt" style="display:none">
-        </div>
-        <div id="import-panel" hidden class="wp-auth">
-          <p class="wp-muted">把 QQ 群收到的 .md 文件拖进来（或选择文件），有令牌时自动写入仓库 submissions/ 并进入审核队列；也可粘贴文本。</p>
-          <textarea id="paste-area" class="wp-writeup-area" rows="4" placeholder="粘贴 Writeup 文本（含 ZSWP 头，或首行 <姓名>-<题号>.md）"></textarea>
-          <button class="wp-btn is-mini" type="button" id="parse-paste">解析粘贴内容</button>
+          <button class="wp-btn is-mini" type="button" id="sync-btn">☁ 拉取仓库 submissions/</button>
         </div>
 
-        <div id="queue"></div>
-        <div id="list"></div>
+        <div id="list"><p class="wp-muted">收件箱为空。</p></div>
 
         <div class="wp-auth" style="margin-top:22px;">
           <h3 class="wp-task-title">审核结果发布</h3>
-          <p class="wp-muted">逐题「通过/打回」后点一键发布（走中转，无需打开 GitHub）；未配置中转时复制 JSON 到 GitHub 网页端覆盖 assets/data/results.json。</p>
+          <p class="wp-muted">逐题「通过/打回」后点「复制发布包」，把内容发给助手（或自己运行发布命令），学生端即显示结果与排行榜。</p>
           <textarea id="export" class="wp-writeup-area" rows="8" readonly></textarea>
-          <button class="wp-btn is-mini is-primary" type="button" id="pub-btn">⚡ 一键发布到站点</button>
-          <button class="wp-btn is-mini" type="button" id="copy-out">复制 results.json</button>
+          <button class="wp-btn is-mini is-primary" type="button" id="copy-out">复制发布包（results.json）</button>
           <button class="wp-btn is-mini" type="button" id="dl-out">下载文件</button>
         </div>
       </div>
     </section>
   </main>
 
-  <script src="assets/js/wp-config.js?v=20261117e"></script>
+  <script src="assets/js/wp-config.js?v=20261117f"></script>
   <script src="assets/js/bank.js?v=20261117b"></script>
   <script src="assets/data/bank.enc.js?v=20261117e"></script>
   <script>
@@ -80,308 +83,180 @@
     "use strict";
     var CFG = window.WP_CONFIG || {};
     var SUB = CFG.subDir || "submissions";
-    var $ = function (s) { return document.querySelector(s); };
-    var bank = null, files = [], entries = [], queueItems = [];
-
-    /* 令牌：优先本浏览器会话（sessionStorage），其次 wp-config。
-       不要把令牌写进 wp-config.js——公开仓库里的 PAT 会被 GitHub 自动吊销。 */
-    function tok() {
-      var t = "";
-      try { t = sessionStorage.getItem("zs_tok") || ""; } catch (e) { /* ignore */ }
-      return (t || CFG.token || "").trim();
-    }
-    function hasTok() { return !!tok(); }
     var RELAY = (CFG.relay || "").replace(/\/+$/, "");
-    function hasWrite() { return !!RELAY; }
-    function coachKey() {
-      var k = "";
-      try { k = sessionStorage.getItem("zs_ck") || ""; } catch (e) { /* ignore */ }
-      if (!k) {
-        k = window.prompt("输入教练口令（部署 Worker 时自己设置的 COACH_KEY）：") || "";
-        try { sessionStorage.setItem("zs_ck", k); } catch (e) { /* ignore */ }
-      }
-      return k;
+    var $ = function (s) { return document.querySelector(s); };
+    var bank = null, files = [], queueNote = "";
+
+    /* ---------- 本地收件箱（localStorage，关页不丢） ---------- */
+    var LS_FILES = "zs-coach-files", LS_ENTRIES = "zs-coach-entries";
+    function boxFiles() { try { return JSON.parse(localStorage.getItem(LS_FILES) || "{}"); } catch (e) { return {}; } }
+    function saveBoxFiles(m) {
+      try { localStorage.setItem(LS_FILES, JSON.stringify(m)); return true; }
+      catch (e) { alert("浏览器缓存已满：请先在收件箱删除已发布的旧文件"); return false; }
     }
-    function gh(path, opts) {
-      var h = { Accept: "application/vnd.github+json" };
-      if (hasTok()) h.Authorization = "Bearer " + tok();
-      return fetch("https://api.github.com" + path, Object.assign({ headers: h }, opts || {}));
-    }
-    /* 统一传输层：有 relay 走 Worker（令牌在服务端），否则直连 GitHub（需会话令牌） */
-    async function listFiles() {
-      if (RELAY) {
-        var r = await fetch(RELAY + "/api/list");
-        if (!r.ok) throw new Error("HTTP " + r.status);
-        return await r.json();
-      }
-      var r2 = await gh("/repos/" + CFG.repo + "/contents/" + SUB);
-      if (!r2.ok) throw new Error("HTTP " + r2.status);
-      return (await r2.json())
-        .filter(function (f) { return f.name !== "README.md"; })
-        .map(function (f) { return { name: f.name, size: f.size, sha: f.sha, path: f.path }; });
-    }
-    async function readFile(name) {
-      if (RELAY) {
-        var r = await fetch(RELAY + "/api/read?name=" + encodeURIComponent(name));
-        var d = await r.json();
-        if (!r.ok) throw new Error(d.error || ("HTTP " + r.status));
-        return d.content;
-      }
-      var r2 = await gh("/repos/" + CFG.repo + "/contents/" + SUB + "/" + encodeURIComponent(name));
-      if (!r2.ok) throw new Error("HTTP " + r2.status);
-      var d2 = await r2.json();
-      return decodeURIComponent(escape(atob(d2.content.replace(/\n/g, ""))));
-    }
-    async function putFile(name, content) {
-      if (RELAY) {
-        var r = await fetch(RELAY + "/api/submit", { method: "POST", body: JSON.stringify({ name: name, content: content }) });
-        if (!r.ok) { var d = await r.json().catch(function () { return {}; }); throw new Error(d.error || ("HTTP " + r.status)); }
-        return;
-      }
-      var path = "/repos/" + CFG.repo + "/contents/" + SUB + "/" + encodeURIComponent(name);
-      var sha = null;
-      var g = await gh(path); if (g.ok) sha = (await g.json()).sha;
-      var body = { message: "coach: " + name, content: b64(content) };
-      if (sha) body.sha = sha;
-      var p = await gh(path, { method: "PUT", body: JSON.stringify(body) });
-      if (!p.ok) throw new Error("HTTP " + p.status);
-    }
-    async function delFile(name) {
-      if (RELAY) {
-        var body = { name: name };
-        if (RELAY) body.key = coachKey();
-        var r = await fetch(RELAY + "/api/delete", { method: "POST", body: JSON.stringify(body) });
-        if (!r.ok) { var d = await r.json().catch(function () { return {}; }); throw new Error(d.error || ("HTTP " + r.status)); }
-        return;
-      }
-      var p2 = await gh("/repos/" + CFG.repo + "/contents/" + SUB + "/" + encodeURIComponent(name));
-      if (!p2.ok) throw new Error("not found");
-      var sha2 = (await p2.json()).sha;
-      var d2 = await gh("/repos/" + CFG.repo + "/contents/" + SUB + "/" + encodeURIComponent(name), {
-        method: "DELETE", body: JSON.stringify({ message: "coach delete: " + name, sha: sha2 }),
-      });
-      if (!d2.ok) throw new Error("HTTP " + d2.status);
-    }
+    function boxEntries() { try { return JSON.parse(localStorage.getItem(LS_ENTRIES) || "[]"); } catch (e) { return []; } }
+    var entries = boxEntries();
+    function saveEntries() { try { localStorage.setItem(LS_ENTRIES, JSON.stringify(entries)); } catch (e) { /* ignore */ } }
+
     function b64(str) {
       var bytes = new TextEncoder().encode(str), bin = "";
       for (var i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
       return btoa(bin);
     }
+    function ghAnon(path) {
+      return fetch("https://api.github.com" + path, { headers: { Accept: "application/vnd.github+json" } });
+    }
     function chById(id) { return bank && (bank.challenges || []).find(function (c) { return c.id === id; }) || null; }
     function parseMd(text, filename) {
       var meta = { id: "", name: "", github: "", direction: "" };
-      var m = text.match(/<!--ZSWP([\s\S]*?)-->/);
+      var m = (text || "").match(/<!--ZSWP([\s\S]*?)-->/);
       if (m) ["id", "name", "github", "direction"].forEach(function (k) {
         var mm = m[1].match(new RegExp("^\\s*" + k + "\\s*:\\s*(.+)$", "m"));
         if (mm) meta[k] = mm[1].trim();
       });
-      if (!meta.id) {
+      if (!meta.id || !meta.name) {
         var fm = (filename || "").match(/^(.+)-((?:WEB|CRYPTO|MISC|REVERSE|PWN)-\d+)\.md$/i);
-        if (fm) { meta.name = fm[1]; meta.id = fm[2].toUpperCase(); }
+        if (fm) { meta.name = meta.name || fm[1]; meta.id = meta.id || fm[2].toUpperCase(); }
       }
       if (!meta.id) {
-        var tm = text.match(/((?:WEB|CRYPTO|MISC|REVERSE|PWN)-\d+)/i);
+        var tm = (text || "").match(/((?:WEB|CRYPTO|MISC|REVERSE|PWN)-\d+)/i);
         if (tm) meta.id = tm[1].toUpperCase();
       }
       return meta;
     }
 
-    /* ---------- 数据加载 ---------- */
-    async function loadFiles() {
-      $("#list").innerHTML = '<p class="wp-muted">LOADING // 读取仓库 submissions/ …</p>';
-      try {
-        files = (await listFiles()).filter(function (f) { return /\.(md|markdown|txt)$/i.test(f.name); });
-      } catch (e) {
-        files = [];
-        var hint = hasWrite() ? "" : "（匿名读取受 GitHub 限流影响，部署中转 Worker 后本页读写全部免令牌）";
-        $("#list").innerHTML = '<p class="wp-muted">列表暂不可读（' + e.message + '）' + hint + '</p>';
-        return;
-      }
+    /* ---------- 列表 ---------- */
+    function loadBox() {
+      var m = boxFiles();
+      files = Object.keys(m).map(function (n) {
+        return { name: n, size: (m[n].content || "").length, at: m[n].at, src: "box" };
+      });
       renderList();
     }
-    async function loadResults() {
+    async function syncRemote() {
+      var btn = this;
+      btn.textContent = "拉取中…";
       try {
-        var r = await fetch("assets/data/results.json?ts=" + Date.now(), { cache: "no-store" });
-        entries = r.ok ? ((await r.json()).entries || []).map(function (e) { return Object.assign({}, e); }) : [];
-      } catch (e) { entries = []; }
-      renderList(); renderPublished();
+        var list;
+        if (RELAY) {
+          var r = await fetch(RELAY + "/api/list");
+          if (!r.ok) throw new Error("HTTP " + r.status);
+          list = await r.json();
+        } else {
+          var r2 = await ghAnon("/repos/" + CFG.repo + "/contents/" + SUB);
+          if (!r2.ok) throw new Error("HTTP " + r2.status + "（限流或无网络）");
+          list = (await r2.json()).filter(function (f) { return f.name !== "README.md"; });
+        }
+        var m = boxFiles(), added = 0;
+        for (var i = 0; i < list.length; i++) {
+          var f = list[i];
+          if (m[f.name]) continue;
+          var content = "";
+          try {
+            if (RELAY) {
+              var rr = await fetch(RELAY + "/api/read?name=" + encodeURIComponent(f.name));
+              content = (await rr.json()).content || "";
+            } else {
+              var rr2 = await ghAnon("/repos/" + CFG.repo + "/contents/" + SUB + "/" + encodeURIComponent(f.name));
+              if (rr2.ok) content = decodeURIComponent(escape(atob((await rr2.json()).content.replace(/\n/g, ""))));
+            }
+          } catch (e) { /* 内容稍后可再拉 */ }
+          m[f.name] = { content: content, at: f.updated || new Date().toISOString() };
+          added++;
+        }
+        if (!saveBoxFiles(m)) { btn.textContent = "☁ 拉取仓库 submissions/"; return; }
+        queueNote = "已拉取 " + added + " 个远端文件进收件箱";
+        loadBox();
+      } catch (e) { queueNote = "拉取失败：" + e.message; }
+      btn.textContent = "☁ 拉取仓库 submissions/";
     }
 
-    function entryFor(fname) {
-      var m = fname.match(/^(.+)-((?:WEB|CRYPTO|MISC|REVERSE|PWN)-\d+)\.md$/i);
+    function entryFor(name) {
+      var m = name.match(/^(.+)-((?:WEB|CRYPTO|MISC|REVERSE|PWN)-\d+)\.md$/i);
       if (!m) return null;
-      var name = m[1], id = m[2].toUpperCase();
+      var nm = m[1], id = m[2].toUpperCase();
       return entries.find(function (e) {
-        return e.id === id && (e.name || "").toLowerCase() === name.toLowerCase();
-      }) || entries.find(function (e) { return e.id === id && (e.filename || "") === fname; });
+        return e.id === id && (e.name || "").toLowerCase() === nm.toLowerCase();
+      }) || null;
     }
 
-    /* ---------- 列表（增删改查） ---------- */
     function renderList() {
       var host = $("#list");
       host.innerHTML = "";
+      if (queueNote) { host.appendChild(el("p", "wp-muted", queueNote)); }
       var kw = $("#q").value.trim().toLowerCase();
       var shown = files.filter(function (f) { return !kw || f.name.toLowerCase().indexOf(kw) >= 0; });
-      host.appendChild(el("p", "wp-kicker", "// 仓库入库提交 · " + shown.length + " / " + files.length + " 篇"));
+      host.appendChild(el("p", "wp-kicker", "// 收件箱 · " + shown.length + " 篇 · 已审 " +
+        shown.filter(function (f) { return entryFor(f.name); }).length + " 篇"));
+      if (!shown.length) { host.appendChild(el("p", "wp-muted", "（空）把文件拖到上方虚线区开始审核。")); return; }
       shown.sort(function (a, b) { return b.name.localeCompare(a.name, "zh"); });
       shown.forEach(function (f) {
-        var card = document.createElement("div");
-        card.className = "rev-card";
+        var card = el("div", "rev-card");
+        var meta = parseMd("", f.name);
         var st = entryFor(f.name);
-        var head = document.createElement("div");
-        head.className = "rev-head";
+        var ch = chById(meta.id);
+        var head = el("div", "rev-head");
         head.innerHTML = "<b>" + f.name + "</b>" +
+          "<span>" + (ch ? ch.title : (meta.id || "")) + "</span>" +
           "<span class='wp-badge " + (st ? (st.status === "accepted" ? "b-solved" : "b-cat") : "b-pending") + "'>" +
-          (st ? (st.status === "accepted" ? "已通过 " + st.score + "分" : "打回") : "待审核") + "</span>" +
+          (st ? (st.status === "accepted" ? "已通过 " + st.score + "分" : "已打回") : "待审核") + "</span>" +
           "<span class='wp-muted'>" + Math.round((f.size || 0) / 1024) + " KB</span>";
         card.appendChild(head);
 
-        var body = document.createElement("div");
-        body.className = "rev-body";
-        body.textContent = "（点击「查看内容」加载全文）";
+        var body = el("div", "rev-body");
+        body.hidden = true;
+        var loaded = false;
         card.appendChild(body);
 
-        var acts = document.createElement("div");
-        acts.className = "rev-actions";
-        var loaded = false;
-        var btnView = mkBtn("查看内容", "", async function () {
-          if (loaded) { body.hidden = !body.hidden; return; }
-          body.textContent = "LOADING…"; body.hidden = false;
-          try { body.textContent = await readFile(f.name); loaded = true; }
-          catch (e) { body.textContent = "读取失败：" + e.message; }
-        });
-        acts.appendChild(btnView);
-
-        var sc = mkInput("number", "分数", ""); sc.value = "";
-        var rs = mkInput("text", "打回理由", ""); rs.style.flex = "1"; rs.style.minWidth = "150px";
+        var acts = el("div", "rev-actions");
+        acts.appendChild(mkBtn("查看内容", "", function () {
+          body.hidden = !body.hidden;
+          if (loaded || body.hidden) return;
+          var m2 = boxFiles()[f.name];
+          body.textContent = (m2 && m2.content) || "（内容为空——点「☁ 拉取仓库」补全）";
+          loaded = true;
+        }));
+        var sc = mkInput("number", "分数"); sc.value = ch ? ch.score : 20;
+        var rs = mkInput("text", "打回理由（打回必填）"); rs.style.flex = "1"; rs.style.minWidth = "160px";
         acts.appendChild(sc); acts.appendChild(rs);
-        var bOk = mkBtnSync("通过", "is-primary", function () {
-          var parsed = parseMd("", f.name);
-          var ex = entryFor(f.name);
-          var id = (ex && ex.id) || parsed.id;
-          var nm = (ex && ex.name) || parsed.name;
-          if (!id) { alert("文件名无法解析题号"); return; }
-          var ch = chById(id);
-          decide(id, nm, "", "accepted", parseInt(sc.value, 10) || (ch ? ch.score : 20), "");
-        });
-        acts.appendChild(bOk);
-        var bNo = mkBtnSync("打回", "", function () {
+        acts.appendChild(mkBtn("通过", "is-primary", function () { decide(f.name, "accepted", parseInt(sc.value, 10) || (ch ? ch.score : 20), ""); }));
+        acts.appendChild(mkBtn("打回", "", function () {
           if (!rs.value.trim()) { alert("打回必须写理由"); return; }
-          var parsed = parseMd("", f.name);
-          var ex = entryFor(f.name);
-          var id = (ex && ex.id) || parsed.id;
-          var nm = (ex && ex.name) || parsed.name;
-          if (!id) { alert("文件名无法解析题号"); return; }
-          decide(id, nm, "", "rejected", 0, rs.value.trim());
-        });
-        acts.appendChild(bNo);
-
-        var bEdit = mkBtnSync("编辑", "", async function () {
-          if (!hasWrite()) { alert("需先部署中转 Worker（此后所有读写免令牌）"); return; }
-          var text = await readFile(f.name);
-          var nt = window.prompt("编辑 " + f.name + " 内容（确定即保存回仓库）：", text);
-          if (nt === null || nt === text) return;
-          await putFile(f.name, nt);
-          alert("已保存"); loadFiles();
-        });
-        acts.appendChild(bEdit);
-
-        var bDel = mkBtnSync("删除", "", async function () {
-          if (!hasWrite()) { alert("需先部署中转 Worker（此后所有读写免令牌）"); return; }
-          if (!confirm("从仓库删除 " + f.name + "？")) return;
-          await delFile(f.name);
-          loadFiles();
-        });
-        acts.appendChild(bDel);
-
+          decide(f.name, "rejected", 0, rs.value.trim());
+        }));
+        acts.appendChild(mkBtn("编辑", "", function () {
+          var m3 = boxFiles(); var cur = (m3[f.name] || {}).content || "";
+          var nt = window.prompt("编辑 " + f.name + " 内容（确定保存进收件箱）：", cur);
+          if (nt === null) return;
+          m3[f.name] = { content: nt, at: new Date().toISOString() };
+          saveBoxFiles(m3); loadBox();
+        }));
+        acts.appendChild(mkBtn("删除", "", function () {
+          if (!confirm("从收件箱删除 " + f.name + "？")) return;
+          var m4 = boxFiles(); delete m4[f.name]; saveBoxFiles(m4); loadBox();
+        }));
         card.appendChild(acts);
         host.appendChild(card);
       });
+      renderPublished();
     }
 
-    function decide(id, name, fname, status, score, reason) {
-      entries = entries.filter(function (e) { return !(e.id === id && (e.name || "").toLowerCase() === String(name || "").toLowerCase()); });
-      var ch = chById(id);
+    function decide(name, status, score, reason) {
+      var meta = parseMd("", name);
+      if (!meta.id) { alert("文件名无法解析题号"); return; }
+      var ch = chById(meta.id);
+      entries = entries.filter(function (e) {
+        return !(e.id === meta.id && (e.name || "").toLowerCase() === (meta.name || "").toLowerCase());
+      });
       entries.push({
-        id: id, github: "", name: name || "?",
+        id: meta.id, github: meta.github || "", name: meta.name || "?",
         direction: ch ? ch.dir : "", status: status, score: score, reason: reason,
         at: new Date().toISOString(),
       });
-      renderList(); renderPublished();
+      saveEntries();
+      renderList();
     }
 
-    function mkBtn(t, cls, fn) { var b = document.createElement("button"); b.className = "wp-btn is-mini " + (cls || ""); b.textContent = t; b.addEventListener("click", fn); return b; }
-    function mkBtnSync(t, cls, fn) { return mkBtn(t, cls, function () { Promise.resolve(fn()).catch(function (e) { alert(e.message); }); }); }
-    function mkInput(type, ph, cls) { var i = document.createElement("input"); i.type = type; i.placeholder = ph; if (cls) i.className = cls; if (type === "number") i.style.maxWidth = "80px"; return i; }
-    function el(tag, cls, text) { var n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; }
-
-    /* ---------- 代入库 / 拖入 ---------- */
-    function addFiles(fileList) {
-      Array.prototype.forEach.call(fileList, function (f) {
-        if (!/\.(md|markdown|txt)$/i.test(f.name)) return;
-        var r = new FileReader();
-        r.onload = async function () {
-          var text = String(r.result || "");
-          var meta = parseMd(text, f.name);
-          if (!meta.id || !meta.name) { alert(f.name + "：无法解析题号/姓名（需 ZSWP 头或 <姓名>-<题号>.md 命名）"); return; }
-          if (hasWrite()) {
-            try {
-              await putFile(meta.name + "-" + meta.id + ".md", text);
-              loadFiles();
-              return;
-            } catch (e) { alert("入库失败（" + e.message + "），加入本地队列"); }
-          }
-          queueItems.push({ id: meta.id, name: meta.name, github: meta.github, direction: meta.direction, content: text, filename: f.name });
-          renderQueue();
-        };
-        r.readAsText(f, "utf-8");
-      });
-    }
-    $("#picker").addEventListener("change", function () { addFiles(this.files); this.value = ""; });
-    $("#import-btn").addEventListener("click", function () {
-      var p = $("#import-panel"); p.hidden = !p.hidden;
-    });
-    $("#parse-paste").addEventListener("click", function () {
-      var text = $("#paste-area").value;
-      if (!text.trim()) return;
-      var meta = parseMd(text, "");
-      if (!meta.id) { alert("无法解析题号"); return; }
-      queueItems.push({ id: meta.id, name: meta.name || "?", github: meta.github, direction: meta.direction, content: text, filename: "pasted" });
-      $("#paste-area").value = "";
-      renderQueue();
-    });
-
-    function renderQueue() {
-      var host = $("#queue");
-      host.innerHTML = "";
-      if (!queueItems.length) return;
-      host.appendChild(el("p", "wp-kicker", "// 本地待入库队列（无令牌模式）· " + queueItems.length + " 篇"));
-      queueItems.forEach(function (q, idx) {
-        var card = el("div", "rev-card");
-        var head = el("div", "rev-head");
-        head.innerHTML = "<b>" + q.id + "</b><span>" + (q.name || "?") + "</span>";
-        card.appendChild(head);
-        var body = el("div", "rev-body", q.content.slice(0, 3000));
-        card.appendChild(body);
-        var acts = el("div", "rev-actions");
-        var sc = mkInput("number", "分数", ""); var rs = mkInput("text", "打回理由", "");
-        acts.appendChild(sc); acts.appendChild(rs);
-        acts.appendChild(mkBtn("通过", "is-primary", function () {
-          var ch = chById(q.id);
-          decide(q.id, q.name, "", "accepted", parseInt(sc.value, 10) || (ch ? ch.score : 20), "");
-          queueItems.splice(idx, 1); renderQueue();
-        }));
-        acts.appendChild(mkBtn("打回", "", function () {
-          if (!rs.value.trim()) { alert("打回必须写理由"); return; }
-          decide(q.id, q.name, "", "rejected", 0, rs.value.trim());
-          queueItems.splice(idx, 1); renderQueue();
-        }));
-        card.appendChild(acts);
-        host.appendChild(card);
-      });
-    }
-
-    /* ---------- results 导出 ---------- */
     function renderPublished() {
       $("#export").value = JSON.stringify({
         updated: new Date().toISOString(),
@@ -389,40 +264,61 @@
         entries: entries,
       }, null, 2);
     }
-    $("#copy-out").addEventListener("click", function () {
-      var b = this;
-      navigator.clipboard.writeText($("#export").value).then(function () {
-        b.textContent = "已复制 ✓"; setTimeout(function () { b.textContent = "复制 results.json"; }, 1500);
+
+    function mkBtn(t, cls, fn) { var b = el("button", "wp-btn is-mini " + (cls || ""), t); b.type = "button"; b.addEventListener("click", fn); return b; }
+    function mkInput(type, ph) { var i = document.createElement("input"); i.type = type; i.placeholder = ph; if (type === "number") i.style.maxWidth = "80px"; return i; }
+    function el(tag, cls, text) { var n = document.createElement(tag); if (cls) n.className = cls; if (text != null) n.textContent = text; return n; }
+
+    /* ---------- 收件 ---------- */
+    function addFiles(fileList) {
+      var m = boxFiles(), n = 0;
+      var pending = fileList.length;
+      Array.prototype.forEach.call(fileList, function (f) {
+        if (!/\.(md|markdown|txt)$/i.test(f.name)) { if (--pending === 0) { saveBoxFiles(m); loadBox(); } return; }
+        var r = new FileReader();
+        r.onload = function () {
+          var text = String(r.result || "");
+          var meta = parseMd(text, f.name);
+          var key = meta.name && meta.id ? meta.name + "-" + meta.id + ".md" : f.name;
+          m[key] = { content: text, at: new Date().toISOString() };
+          if (--pending === 0) { if (saveBoxFiles(m)) n = 1; loadBox(); }
+        };
+        r.readAsText(f, "utf-8");
       });
+      if (!fileList.length) return;
+    }
+    var drop = $("#drop");
+    ["dragenter", "dragover"].forEach(function (ev) { drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.add("on"); }); });
+    ["dragleave", "drop"].forEach(function (ev) { drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.remove("on"); }); });
+    drop.addEventListener("drop", function (e) { addFiles(e.dataTransfer.files); });
+    $("#picker").addEventListener("change", function () { addFiles(this.files); this.value = ""; });
+    $("#toggle-paste").addEventListener("click", function () { $("#paste-box").hidden = !$("#paste-box").hidden; });
+    $("#parse-paste").addEventListener("click", function () {
+      var text = $("#paste-area").value;
+      if (!text.trim()) return;
+      var meta = parseMd(text, "");
+      if (!meta.id) { alert("无法解析题号（需 ZSWP 头或标题含 <姓名>-<题号>.md）"); return; }
+      var m = boxFiles();
+      m[(meta.name || "?") + "-" + meta.id + ".md"] = { content: text, at: new Date().toISOString() };
+      saveBoxFiles(m); $("#paste-area").value = ""; $("#paste-box").hidden = true; loadBox();
     });
-    $("#dl-out").addEventListener("click", function () {
-      var blob = new Blob([$("#export").value], { type: "application/json" });
-      var a = document.createElement("a");
-      a.href = URL.createObjectURL(blob); a.download = "results.json"; a.click();
-      setTimeout(function () { URL.revokeObjectURL(a.href); }, 800);
-    });
-    $("#refresh").addEventListener("click", function () { serverClear(); loadFiles(); loadResults(); });
-    $("#q").addEventListener("input", renderList);
-    function serverClear() { }
 
     /* ---------- AI 辅助审查接口 ---------- */
-    $("#ai-copy").addEventListener("click", async function () {
+    $("#ai-copy").addEventListener("click", function () {
       var pending = files.filter(function (f) { return !entryFor(f.name); });
       if (!pending.length) { alert("没有待审提交"); return; }
+      var m = boxFiles();
       var lines = ["# ZEROTHSEC Writeup 待审包", "",
-        "请逐篇评审以下 Writeup，评估其是否真实、步骤是否清晰、结论是否正确。",
+        "请逐篇评审以下 Writeup，评估是否真实、步骤是否清晰、结论是否正确。",
         "只输出结论行，每行一个 JSON，不要任何其他文字：",
         '{"name":"姓名","id":"题号","status":"accepted 或 rejected","score":分数,"reason":"一句评语或打回理由"}',
         "", "---", ""];
-      for (var i = 0; i < pending.length; i++) {
-        var f = pending[i];
-        var text = "（读取失败）";
-        try { text = await readFile(f.name); } catch (e) { /* ignore */ }
-        var parsed = parseMd("", f.name);
-        var ch = chById(parsed.id);
+      pending.forEach(function (f) {
+        var meta = parseMd("", f.name);
+        var ch = chById(meta.id);
         lines.push("## " + f.name + "（题目：" + (ch ? ch.title : "?") + "，满分 " + (ch ? ch.score : "?") + "）");
-        lines.push("```md"); lines.push(text.slice(0, 6000)); lines.push("```"); lines.push("");
-      }
+        lines.push("```md"); lines.push(((m[f.name] || {}).content || "（内容为空，请先拉取仓库）").slice(0, 6000)); lines.push("```"); lines.push("");
+      });
       var pkg = lines.join("\n");
       var b = this;
       if (navigator.clipboard) navigator.clipboard.writeText(pkg).then(function () {
@@ -454,26 +350,31 @@
           n++;
         } catch (e) { /* 跳过非 JSON 行 */ }
       });
-      alert("导入 " + n + " 条结论。核对无误后点「一键发布到站点」。");
-      renderList(); renderPublished();
-    });
-    $("#pub-btn").addEventListener("click", async function () {
-      var b = this;
-      if (!RELAY) { alert("未配置中转：请复制右侧 JSON 后到 GitHub 网页端覆盖 assets/data/results.json"); return; }
-      b.textContent = "发布中…";
-      try {
-        var r = await fetch(RELAY + "/api/publish", { method: "POST", body: JSON.stringify({ key: coachKey(), content: $("#export").value }) });
-        var d = await r.json().catch(function () { return {}; });
-        if (!r.ok) throw new Error(d.error || ("HTTP " + r.status));
-        b.textContent = "已发布 ✓";
-        setTimeout(function () { b.textContent = "⚡ 一键发布到站点"; }, 2500);
-      } catch (e) { b.textContent = "⚡ 一键发布到站点"; alert("发布失败：" + e.message); }
+      saveEntries();
+      alert("导入 " + n + " 条结论。核对后点「复制发布包」交给助手发布。");
+      renderList();
     });
 
+    $("#copy-out").addEventListener("click", function () {
+      var b = this;
+      navigator.clipboard.writeText($("#export").value).then(function () {
+        b.textContent = "已复制 ✓ 发给助手说「发布结果」即可";
+        setTimeout(function () { b.textContent = "复制发布包（results.json）"; }, 3000);
+      });
+    });
+    $("#dl-out").addEventListener("click", function () {
+      var blob = new Blob([$("#export").value], { type: "application/json" });
+      var a = document.createElement("a");
+      a.href = URL.createObjectURL(blob); a.download = "results.json"; a.click();
+      setTimeout(function () { URL.revokeObjectURL(a.href); }, 800);
+    });
+    $("#refresh").addEventListener("click", loadBox);
+    $("#q").addEventListener("input", renderList);
+    $("#sync-btn").addEventListener("click", syncRemote);
+
     /* ---------- 初始化 ---------- */
-    window.ZSBank.loadBank().then(function (b) { bank = b; }).catch(function (e) { console.warn(e); });
-    loadFiles();
-    loadResults();
+    window.ZSBank.loadBank().then(function (b) { bank = b; renderList(); }).catch(function (e) { console.warn(e); });
+    loadBox();
   })();
   </script>
 </body>

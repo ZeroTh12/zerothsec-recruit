@@ -275,7 +275,7 @@
     var zone = el("div", "wp-submit-zone");
 
     var expectName = expectedFname(ch);
-    zone.appendChild(el("p", "wp-hint", "规范命名：" + expectName + "。上传后自动存入仓库 submissions/，教练在管理页直接审核。"));
+    zone.appendChild(el("p", "wp-hint", "规范命名：" + expectName + "。上传后存入本站提交箱（本机），并把同一个文件发到招新答疑 QQ 群，教练在群里收齐审核。"));
 
     var row = el("div", "wp-row");
     row.style.flexWrap = "wrap";
@@ -636,7 +636,7 @@
       "2. 每日发题制：**每天 0 点解锁 3 道新题**，一周为一个周期（共 21 题），周日 23:59 截止，下周自动换新题；题目按 易→难 排列，绝不重题\n" +
       "3. 点题目卡「去平台做题 ↗」在 CTF² 平台解题拿 flag（需注册 CTF²/MYDAS 账号）\n" +
       "4. 写 Writeup：点「下载空模板」→ 按模板写 → 保存为 <姓名>-<题号>.md\n" +
-      "5. 题卡内点「上传 .md 提交」→ 自动存入仓库 submissions/（教练管理页直接审核）；若提示未开启直连入库，请把文件发到招新答疑 QQ 群，教练代入库\n" +
+      "5. 题卡内点「上传 .md 提交」→ 存入本站提交箱（本机可回看）+ 把同一个文件发到招新答疑 QQ 群，教练在群里收齐审核\n" +
       "6. 回本页看结果：通过计分上榜；打回看理由，改完重新上传\n" +
       "7. 「我的提交」标签查看你已入库的全部 Writeup 与审核状态"));
     host.appendChild(box);
@@ -647,16 +647,15 @@
       "1. 在 QQ 群收齐本周 <姓名>-<题号>.md 文件\n" +
       "2. 打开教练审核页（站内无链接，地址仅教练知晓），把文件整批拖入\n" +
       "3. 逐题看全文，可把内容粘贴给 AI 辅助评审拿分数建议 → 自己定夺\n" +
-      "4. 录入 通过(分数)/打回(理由) → 复制导出的 results.json → GitHub 网页端覆盖 assets/data/results.json 提交\n" +
+      "4. 录入 通过(分数)/打回(理由) → 「复制发布包」发给助手（或运行发布命令）→ 学生端即生效\n" +
       "5. 学生端自动显示结果与排行榜；发题是每日自动的，改 batches.json 的 daily 即可调每天题量（一周 = daily×7 题，下周自动换下一段，绝不重题）"));
     host.appendChild(box2);
 
     var box3 = el("div", "wp-auth");
     box3.appendChild(el("h3", "wp-task-title", "提交存在哪里（如实说明）"));
     box3.appendChild(el("p", "wp-muted",
-      "本站是纯静态网站，没有自建服务器——所谓\"统一存放\"，存放地就是 GitHub 仓库的 submissions/ 目录：" +
-      "你上传的 .md 通过 GitHub Contents API 直接写入仓库，教练的管理页实时读取该目录审核。" +
-      "若上传时提示未配置令牌或写入失败，请把文件发到招新答疑 QQ 群兜底（教练会代入库）。"));
+      "本站是纯静态网站，没有自建服务器：题卡「上传 .md 提交」会把 Writeup 存入你浏览器的提交箱（防丢、可回看、显示审核状态），" +
+      "文件本体请发到招新答疑 QQ 群——教练在管理页统一收齐、AI 辅助审核，审核结果发布后回到本页可看到 通过/打回。"));
     host.appendChild(box3);
   }
 

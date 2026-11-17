@@ -15,7 +15,7 @@
 
 ## 04 提交审核系统（Writeup）
 
-**架构：纯静态。学生端全程不接触 GitHub；星期制自动发题；审核在隐藏教练页完成。**
+**架构：纯静态零基建。学生与你都不需要访问 GitHub，也不需要 Cloudflare/令牌。**
 
 ```
 学生（04 页，登录门禁）
@@ -23,11 +23,13 @@
   └─ 每日发题制：batches.json 配 start(周一) + daily(每天新题量，一周=daily×7 为一个周期)；
      每天 0 点解锁 daily 道新题，周日 23:59:59 周期截止，下周自动换下一段题；
      全题池按 难度→类别→题号 顺序切片，任何一天/任何一周绝不重题
-  └─ 提交：题卡内「上传 .md 文件」控件 → 通过 GitHub Contents API 直接写入仓库 submissions/ 目录
-     （统一存放、教练管理页实时读取；未配置令牌或写入失败时退回本机存档 + QQ 群兜底）
+  └─ 提交：题卡内「上传 .md 文件」→ 存入本机提交箱（可回看、显示审核状态）
+     + 把同一个文件发到招新答疑 QQ 群（这就是"统一上交"通道）
 教练（隐藏管理页 zs-coach-k7x2.html，站内无链接、地址仅教练知晓、noindex）
-  └─ 自动列出 submissions/ 全部提交：查看全文 / 编辑 / 删除 / 代入库（增删改查）
-  └─ 逐题 通过(分数)/打回(理由) → 复制导出的 results.json → GitHub 网页端覆盖 assets/data/results.json 提交
+  └─ 收件箱：QQ 群文件整批拖入/粘贴 → 查看全文/编辑/删除
+  └─ AI 接口：「复制待审 AI 包」→ 任意 AI 评审 →「导入 AI 结论」批量填入
+  └─ 逐题 通过(分数)/打回(理由)（缓存在教练浏览器，关页不丢）→「复制发布包」
+发布：把发布包内容交给助手说「发布结果」，或本地 git 覆盖 assets/data/results.json 推送
 网页（04 页）
   └─ 拉取 results.json → 题卡显示 通过/打回/理由，排行榜按人聚合
 ```
@@ -76,11 +78,11 @@ npm run dev
 - 题库多层加密可防直接读出明文与 flag，但解密逻辑在前端 JS，属高门槛混淆而非绝对防护
 - **PAT 不能写进 `wp-config.js`**：公开仓库里的 GitHub 令牌会被 push protection 拦截、被 secret scanning 自动吊销。
   教练管理页支持**运行时粘贴令牌**（仅存本浏览器会话），即可对 `submissions/` 做增删改查与代入库
-- 学生"上传即入库"的全自动方案需要一层免费服务端中转（Cloudflare Worker，见下），未配置时上传=本机存档+QQ 群、教练代入库
+- 学生"上传即入库"的全自动方案需要一层免费服务端中转（Cloudflare Worker，见下），**当前采用零基建模式**：上传=本机提交箱 + QQ 群上交，教练管理页收件箱审核
 - 审核结果的真实门禁在 GitHub 仓库写权限：只有教练能提交 `results.json` 与 `batches.json`
 - 管理页 `zs-coach-k7x2.html` 站内零链接 + noindex，但公开仓库文件列表可见其存在——页面本身不含数据，无实质风险
 
-## 学生直连入库：Cloudflare Worker 中转（部署后全站无人需要访问 GitHub）
+## （可选升级，当前未启用）学生直连入库：Cloudflare Worker 中转
 
 1. dash.cloudflare.com → Workers & Pages → Create Worker → 命名 `zs-submit` → 粘贴 `tools/submit-worker.js` 全文 → Deploy
 2. Worker Settings → Variables and Secrets → 添加两个 Secret：
