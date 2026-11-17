@@ -8,7 +8,7 @@
   <title>ZS Console</title>
   <link rel="stylesheet" href="assets/css/main.css?v=20261105">
   <link rel="stylesheet" href="assets/css/at-template.css?v=20261109">
-  <link rel="stylesheet" href="assets/css/writeup.css?v=20261117g">
+  <link rel="stylesheet" href="assets/css/writeup.css?v=20261117h">
   <style>
     .rev-card { border: 1px solid var(--line); background: var(--ink-2); padding: 14px 16px; margin-bottom: 14px; }
     .rev-head { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 8px; }
@@ -41,8 +41,11 @@
     <section class="content-section wp-section">
       <div class="wrap">
         <span class="kicker">WRITEUP 管理 / 增删改查 + 审核</span>
-        <p class="secret-note">此页地址请勿外发。学生上传的 Writeup 统一存放在仓库 submissions/ 目录，本页自动读取。</p>
-        <p class="tok-warn" id="tok-warn" hidden>⚠ wp-config.js 未配置写入令牌：只能查看/审核，无法在线编辑、删除或代入库。</p>
+        <p class="secret-note">此页地址请勿外发。学生提交的 Writeup 统一存放在仓库 submissions/ 目录，本页自动读取。</p>
+        <p class="tok-warn" id="tok-warn">⚠ 未载入写入令牌：只能查看/审核。点右侧按钮粘贴一次令牌（仅存本浏览器会话，关闭标签即清除，不会写进任何代码）。
+          <button class="wp-btn is-mini" type="button" id="set-tok">载入令牌</button>
+          <button class="wp-btn is-mini" type="button" id="clear-tok" hidden>清除令牌</button>
+        </p>
 
         <div class="toolbar">
           <input type="search" id="q" placeholder="搜索：姓名 / 题号 / GitHub…">
@@ -70,7 +73,7 @@
     </section>
   </main>
 
-  <script src="assets/js/wp-config.js?v=20261117d"></script>
+  <script src="assets/js/wp-config.js?v=20261117e"></script>
   <script src="assets/js/bank.js?v=20261117b"></script>
   <script src="assets/data/bank.enc.js?v=20261117e"></script>
   <script>
@@ -81,11 +84,73 @@
     var $ = function (s) { return document.querySelector(s); };
     var bank = null, files = [], entries = [], queueItems = [];
 
-    function hasTok() { return !!(CFG.token || "").trim(); }
+    /* 令牌：优先本浏览器会话（sessionStorage），其次 wp-config。
+       不要把令牌写进 wp-config.js——公开仓库里的 PAT 会被 GitHub 自动吊销。 */
+    function tok() {
+      var t = "";
+      try { t = sessionStorage.getItem("zs_tok") || ""; } catch (e) { /* ignore */ }
+      return (t || CFG.token || "").trim();
+    }
+    function hasTok() { return !!tok(); }
+    var RELAY = (CFG.relay || "").replace(/\/+$/, "");
+    function hasWrite() { return !!RELAY || hasTok(); }
     function gh(path, opts) {
       var h = { Accept: "application/vnd.github+json" };
-      if (hasTok()) h.Authorization = "Bearer " + CFG.token.trim();
+      if (hasTok()) h.Authorization = "Bearer " + tok();
       return fetch("https://api.github.com" + path, Object.assign({ headers: h }, opts || {}));
+    }
+    /* 统一传输层：有 relay 走 Worker（令牌在服务端），否则直连 GitHub（需会话令牌） */
+    async function listFiles() {
+      if (RELAY) {
+        var r = await fetch(RELAY + "/api/list");
+        if (!r.ok) throw new Error("HTTP " + r.status);
+        return await r.json();
+      }
+      var r2 = await gh("/repos/" + CFG.repo + "/contents/" + SUB);
+      if (!r2.ok) throw new Error("HTTP " + r2.status);
+      return (await r2.json())
+        .filter(function (f) { return f.name !== "README.md"; })
+        .map(function (f) { return { name: f.name, size: f.size, sha: f.sha, path: f.path }; });
+    }
+    async function readFile(name) {
+      if (RELAY) {
+        var r = await fetch(RELAY + "/api/read?name=" + encodeURIComponent(name));
+        var d = await r.json();
+        if (!r.ok) throw new Error(d.error || ("HTTP " + r.status));
+        return d.content;
+      }
+      var r2 = await gh("/repos/" + CFG.repo + "/contents/" + SUB + "/" + encodeURIComponent(name));
+      if (!r2.ok) throw new Error("HTTP " + r2.status);
+      var d2 = await r2.json();
+      return decodeURIComponent(escape(atob(d2.content.replace(/\n/g, ""))));
+    }
+    async function putFile(name, content) {
+      if (RELAY) {
+        var r = await fetch(RELAY + "/api/submit", { method: "POST", body: JSON.stringify({ name: name, content: content }) });
+        if (!r.ok) { var d = await r.json().catch(function () { return {}; }); throw new Error(d.error || ("HTTP " + r.status)); }
+        return;
+      }
+      var path = "/repos/" + CFG.repo + "/contents/" + SUB + "/" + encodeURIComponent(name);
+      var sha = null;
+      var g = await gh(path); if (g.ok) sha = (await g.json()).sha;
+      var body = { message: "coach: " + name, content: b64(content) };
+      if (sha) body.sha = sha;
+      var p = await gh(path, { method: "PUT", body: JSON.stringify(body) });
+      if (!p.ok) throw new Error("HTTP " + p.status);
+    }
+    async function delFile(name) {
+      if (RELAY) {
+        var r = await fetch(RELAY + "/api/delete", { method: "POST", body: JSON.stringify({ name: name }) });
+        if (!r.ok) { var d = await r.json().catch(function () { return {}; }); throw new Error(d.error || ("HTTP " + r.status)); }
+        return;
+      }
+      var p2 = await gh("/repos/" + CFG.repo + "/contents/" + SUB + "/" + encodeURIComponent(name));
+      if (!p2.ok) throw new Error("not found");
+      var sha2 = (await p2.json()).sha;
+      var d2 = await gh("/repos/" + CFG.repo + "/contents/" + SUB + "/" + encodeURIComponent(name), {
+        method: "DELETE", body: JSON.stringify({ message: "coach delete: " + name, sha: sha2 }),
+      });
+      if (!d2.ok) throw new Error("HTTP " + d2.status);
     }
     function b64(str) {
       var bytes = new TextEncoder().encode(str), bin = "";
@@ -115,10 +180,12 @@
     async function loadFiles() {
       $("#list").innerHTML = '<p class="wp-muted">LOADING // 读取仓库 submissions/ …</p>';
       try {
-        var r = await gh("/repos/" + CFG.repo + "/contents/" + SUB);
-        if (!r.ok) { files = []; $("#list").innerHTML = '<p class="wp-muted">目录为空或不可读（HTTP ' + r.status + '）。</p>'; return; }
-        files = (await r.json()).filter(function (f) { return /\.(md|markdown|txt)$/i.test(f.name) && f.name !== "README.md"; });
-      } catch (e) { files = []; }
+        files = (await listFiles()).filter(function (f) { return /\.(md|markdown|txt)$/i.test(f.name); });
+      } catch (e) {
+        files = [];
+        $("#list").innerHTML = '<p class="wp-muted">目录为空或不可读（' + e.message + '）。</p>';
+        return;
+      }
       renderList();
     }
     async function loadResults() {
@@ -169,12 +236,8 @@
         var btnView = mkBtn("查看内容", "", async function () {
           if (loaded) { body.hidden = !body.hidden; return; }
           body.textContent = "LOADING…"; body.hidden = false;
-          try {
-            var r = await gh("/repos/" + CFG.repo + "/contents/" + f.path);
-            var d = await r.json();
-            body.textContent = decodeURIComponent(escape(atob(d.content.replace(/\n/g, ""))));
-            loaded = true;
-          } catch (e) { body.textContent = "读取失败：" + e.message; }
+          try { body.textContent = await readFile(f.name); loaded = true; }
+          catch (e) { body.textContent = "读取失败：" + e.message; }
         });
         acts.appendChild(btnView);
 
@@ -203,28 +266,20 @@
         acts.appendChild(bNo);
 
         var bEdit = mkBtnSync("编辑", "", async function () {
-          if (!hasTok()) { alert("未配置令牌，无法在线编辑"); return; }
-          var r = await gh("/repos/" + CFG.repo + "/contents/" + f.path);
-          var d = await r.json();
-          var text = decodeURIComponent(escape(atob(d.content.replace(/\n/g, ""))));
+          if (!hasWrite()) { alert("未载入令牌且未配置中转，无法在线编辑"); return; }
+          var text = await readFile(f.name);
           var nt = window.prompt("编辑 " + f.name + " 内容（确定即保存回仓库）：", text);
           if (nt === null || nt === text) return;
-          var res = await gh("/repos/" + CFG.repo + "/contents/" + f.path, {
-            method: "PUT",
-            body: JSON.stringify({ message: "coach edit: " + f.name, content: b64(nt), sha: d.sha }),
-          });
-          if (res.ok) { alert("已保存"); loadFiles(); } else { alert("保存失败 HTTP " + res.status); }
+          await putFile(f.name, nt);
+          alert("已保存"); loadFiles();
         });
         acts.appendChild(bEdit);
 
         var bDel = mkBtnSync("删除", "", async function () {
-          if (!hasTok()) { alert("未配置令牌，无法删除"); return; }
+          if (!hasWrite()) { alert("未载入令牌且未配置中转，无法删除"); return; }
           if (!confirm("从仓库删除 " + f.name + "？")) return;
-          var res = await gh("/repos/" + CFG.repo + "/contents/" + f.path + "?ref=main", {
-            method: "DELETE",
-            body: JSON.stringify({ message: "coach delete: " + f.name, sha: f.sha }),
-          });
-          if (res.ok) loadFiles(); else alert("删除失败 HTTP " + res.status);
+          await delFile(f.name);
+          loadFiles();
         });
         acts.appendChild(bDel);
 
@@ -258,15 +313,9 @@
           var text = String(r.result || "");
           var meta = parseMd(text, f.name);
           if (!meta.id || !meta.name) { alert(f.name + "：无法解析题号/姓名（需 ZSWP 头或 <姓名>-<题号>.md 命名）"); return; }
-          if (hasTok()) {
+          if (hasWrite()) {
             try {
-              var path = "/repos/" + CFG.repo + "/contents/" + SUB + "/" + encodeURIComponent(meta.name + "-" + meta.id + ".md");
-              var sha = null;
-              var g = await gh(path); if (g.ok) sha = (await g.json()).sha;
-              var body = { message: "coach import: " + meta.name + "-" + meta.id + ".md", content: b64(text) };
-              if (sha) body.sha = sha;
-              var put = await gh(path, { method: "PUT", body: JSON.stringify(body) });
-              if (!put.ok) throw new Error("HTTP " + put.status);
+              await putFile(meta.name + "-" + meta.id + ".md", text);
               loadFiles();
               return;
             } catch (e) { alert("入库失败（" + e.message + "），加入本地队列"); }
@@ -346,7 +395,23 @@
     function serverClear() { }
 
     /* ---------- 初始化 ---------- */
-    if (!hasTok()) $("#tok-warn").hidden = false;
+    function refreshTokUI() {
+      var on = hasWrite();
+      $("#tok-warn").hidden = on;
+      $("#clear-tok").hidden = !hasTok();
+    }
+    $("#set-tok").addEventListener("click", function () {
+      var t = window.prompt("粘贴细粒度 PAT（github_pat_...，仅存本浏览器会话）：", "");
+      if (t && t.trim()) {
+        try { sessionStorage.setItem("zs_tok", t.trim()); } catch (e) { /* ignore */ }
+        refreshTokUI(); loadFiles(); loadResults();
+      }
+    });
+    $("#clear-tok").addEventListener("click", function () {
+      try { sessionStorage.removeItem("zs_tok"); } catch (e) { /* ignore */ }
+      refreshTokUI();
+    });
+    refreshTokUI();
     window.ZSBank.loadBank().then(function (b) { bank = b; }).catch(function (e) { console.warn(e); });
     loadFiles();
     loadResults();

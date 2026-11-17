@@ -76,6 +76,8 @@
   var results = { entries: [] };
   var view = "tasks";
   var countdownTimer = null;
+  var lastSubmitOnline = false;
+  var lastSubmitErr = "";
 
   function isLoggedIn() { return !!(profile.github && profile.name && profile.direction); }
   function chById(id) {
@@ -169,11 +171,18 @@
     return btoa(bin);
   }
   function subDir() { return CFG.subDir || "submissions"; }
+  function relayUrl() { return (CFG.relay || "").replace(/\/+$/, ""); }
+  function canServerSubmit() { return !!(relayUrl() || CFG.token); }
   function subPath(fname) {
     return "/repos/" + CFG.repo + "/contents/" + subDir() + "/" + encodeURIComponent(fname);
   }
   async function serverSubmit(fname, content) {
-    if (!CFG.token) { var e = new Error("no-token"); e.code = "no-token"; throw e; }
+    if (!canServerSubmit()) { var e = new Error("no-relay"); e.code = "no-token"; throw e; }
+    if (relayUrl()) {
+      var r = await fetch(relayUrl() + "/api/submit", { method: "POST", body: JSON.stringify({ name: fname, content: content }) });
+      if (!r.ok) { var d = await r.json().catch(function () { return {}; }); throw new Error(d.error || ("HTTP " + r.status)); }
+      return true;
+    }
     var sha = null;
     try {
       var g = await ghApi(subPath(fname));
@@ -181,16 +190,21 @@
     } catch (err) { /* 新文件 */ }
     var body = { message: "writeup: " + fname, content: b64utf8(content) };
     if (sha) body.sha = sha;
-    var r = await ghApi(subPath(fname), { method: "PUT", body: JSON.stringify(body) });
-    if (!r.ok) throw new Error("GitHub 写入失败 HTTP " + r.status);
+    var r2 = await ghApi(subPath(fname), { method: "PUT", body: JSON.stringify(body) });
+    if (!r2.ok) throw new Error("GitHub 写入失败 HTTP " + r2.status);
     return true;
   }
   async function serverSubNames(force) {
     if (serverNames && !force) return serverNames;
     try {
-      var r = await ghApi("/repos/" + CFG.repo + "/contents/" + subDir());
-      if (!r.ok) return (serverNames = []);
-      var d = await r.json();
+      if (relayUrl()) {
+        var r = await fetch(relayUrl() + "/api/list");
+        if (!r.ok) return (serverNames = []);
+        return (serverNames = (await r.json()).map(function (f) { return f.name; }));
+      }
+      var r2 = await ghApi("/repos/" + CFG.repo + "/contents/" + subDir());
+      if (!r2.ok) return (serverNames = []);
+      var d = await r2.json();
       return (serverNames = (Array.isArray(d) ? d : [])
         .map(function (f) { return f.name; })
         .filter(function (n) { return n !== "README.md"; }));
@@ -280,18 +294,18 @@
         var text = String(reader.result || "");
         upBtn.textContent = "提交中…";
         saveSubmission(ch, f.name, text);
+        var online = false;
         try {
-          await serverSubmit(expectedFname(ch), text);
-          serverNames = null;
-          await serverSubNames(true);
-          upBtn.textContent = "已入库 ✓";
-        } catch (err) {
-          if (err.code === "no-token") {
-            window.alert("站点尚未配置写入令牌：本次仅存本机档案。请把 " + expectedFname(ch) + " 同时发到 QQ 群。");
-          } else {
-            window.alert("入库失败（" + err.message + "）：已存本机档案，请把文件发到 QQ 群兜底。");
+          if (canServerSubmit()) {
+            await serverSubmit(expectedFname(ch), text);
+            serverNames = null;
+            await serverSubNames(true);
+            online = true;
           }
-        }
+        } catch (err) { /* 走兜底 */ }
+        lastSubmitOnline = online;
+        lastSubmitErr = online ? "" : (canServerSubmit() ? "写入失败" : "站点未开启直连入库");
+        upBtn.textContent = online ? "已入库 ✓" : "已存档 ✓";
         refresh();
       };
       reader.readAsText(f, "utf-8");
@@ -333,9 +347,9 @@
 
     var stLine;
     if (serverHas) {
-      stLine = el("p", "wp-msg ok", "✓ 已提交入库（submissions/" + expectName + "），等待教练审核。重新上传会覆盖旧版。");
+      stLine = el("p", "wp-msg ok", "✓ 已入库（submissions/" + expectName + "），等待教练审核。重新上传会覆盖旧版。");
     } else if (sub) {
-      stLine = el("p", "wp-msg", "已存本机档案，但未入库——请重试上传或发 QQ 群。");
+      stLine = el("p", "wp-msg", (lastSubmitErr ? lastSubmitErr + "，" : "") + "已存本机档案。请把 " + expectName + " 发到招新答疑 QQ 群，教练会代入库。");
     } else {
       stLine = el("p", "wp-muted", "尚未提交。");
     }
@@ -622,7 +636,7 @@
       "2. 每日发题制：**每天 0 点解锁 3 道新题**，一周为一个周期（共 21 题），周日 23:59 截止，下周自动换新题；题目按 易→难 排列，绝不重题\n" +
       "3. 点题目卡「去平台做题 ↗」在 CTF² 平台解题拿 flag（需注册 CTF²/MYDAS 账号）\n" +
       "4. 写 Writeup：点「下载空模板」→ 按模板写 → 保存为 <姓名>-<题号>.md\n" +
-      "5. 题卡内点「上传 .md 提交」→ 自动存入仓库 submissions/（教练管理页直接审核）\n" +
+      "5. 题卡内点「上传 .md 提交」→ 自动存入仓库 submissions/（教练管理页直接审核）；若提示未开启直连入库，请把文件发到招新答疑 QQ 群，教练代入库\n" +
       "6. 回本页看结果：通过计分上榜；打回看理由，改完重新上传\n" +
       "7. 「我的提交」标签查看你已入库的全部 Writeup 与审核状态"));
     host.appendChild(box);

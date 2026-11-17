@@ -74,8 +74,19 @@ npm run dev
 ## 安全模型（如实说明）
 
 - 题库多层加密可防直接读出明文与 flag，但解密逻辑在前端 JS，属高门槛混淆而非绝对防护
-- 学生上传的 Writeup 通过 GitHub Contents API 写入仓库 `submissions/`，使用的 `wp-config.js` 内嵌令牌是**公开可见**的：
-  必须使用**细粒度 PAT**（仅 `zerothsec-recruit` 单仓库 + 仅 Contents: read/write 权限 + 可设过期时间）。
-  最坏情况是被人往仓库提交垃圾文件——发现即在管理页删除，并到 GitHub 吊销重发令牌
+- **PAT 不能写进 `wp-config.js`**：公开仓库里的 GitHub 令牌会被 push protection 拦截、被 secret scanning 自动吊销。
+  教练管理页支持**运行时粘贴令牌**（仅存本浏览器会话），即可对 `submissions/` 做增删改查与代入库
+- 学生"上传即入库"的全自动方案需要一层免费服务端中转（Cloudflare Worker，见下），未配置时上传=本机存档+QQ 群、教练代入库
 - 审核结果的真实门禁在 GitHub 仓库写权限：只有教练能提交 `results.json` 与 `batches.json`
 - 管理页 `zs-coach-k7x2.html` 站内零链接 + noindex，但公开仓库文件列表可见其存在——页面本身不含数据，无实质风险
+
+## （可选升级）学生直连入库：Cloudflare Worker 中转
+
+纯静态站 + 公开令牌 = 必被吊销，因此学生上传要"一步入库"需要一层极薄的中转（免费额度足够）：
+
+1. 登录 dash.cloudflare.com → Workers & Pages → Create Worker，粘贴 `tools/submit-worker.js` 代码
+2. Settings → Variables → 添加 Secret `GH_TOKEN`（就是你那把细粒度 PAT，这次它只存在 Cloudflare 服务端）
+3. Deploy 得到 `https://xxx.workers.dev`，把 `wp-config.js` 的 `relay` 填为该地址
+4. 学生上传的 .md 会经 Worker 用服务端令牌写入仓库 `submissions/`，令牌不再出现在任何公开页面
+
+`tools/submit-worker.js` 已备好（校验命名规范 + 限制大小 + 只允许写 submissions/ 前缀）。
