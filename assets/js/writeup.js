@@ -161,12 +161,22 @@
   function relayUrl() { return (CFG.relay || "").replace(/\/+$/, ""); }
   function canServerSubmit() { return !!relayUrl(); }
   async function serverSubmit(fname, content) {
-    if (!canServerSubmit()) { var e = new Error("提交服务未配置"); throw e; }
-    var r = await fetch(relayUrl() + "/api/submit", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: fname, content: content })
-    });
+    if (!canServerSubmit()) { throw new Error("提交服务未配置（relay 为空），请按 Ctrl+F5 强制刷新页面后重试"); }
+    var ctrl = typeof AbortController !== "undefined" ? new AbortController() : null;
+    var timer = ctrl ? setTimeout(function () { ctrl.abort(); }, 25000) : null;
+    var r;
+    try {
+      r = await fetch(relayUrl() + "/api/submit", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: fname, content: content }),
+        signal: ctrl ? ctrl.signal : undefined
+      });
+    } catch (e) {
+      throw new Error(e && e.name === "AbortError" ? "提交超时（网络不通），请重试" : "网络错误：" + (e && e.message ? e.message : "无法连接提交服务"));
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
     if (!r.ok) {
       var d = await r.json().catch(function () { return {}; });
       throw new Error(d.error || ("HTTP " + r.status));
@@ -176,7 +186,7 @@
   async function serverSubNames(force) {
     if (serverNames && !force) return serverNames;
     try {
-      var r = await fetch(relayUrl() + "/api/list");
+      var r = await fetch(relayUrl() + "/api/list?t=" + Date.now());
       if (!r.ok) return (serverNames = []);
       return (serverNames = (await r.json()).map(function (f) { return f.name; }));
     } catch (e) { return (serverNames = []); }
@@ -322,7 +332,7 @@
     if (serverHas) {
       stLine = el("p", "wp-msg ok", "✓ 已入库（submissions/" + expectName + "），等待教练审核。重新上传会覆盖旧版。");
     } else if (sub) {
-      stLine = el("p", "wp-msg", (lastSubmitErr ? "上传失败：" + lastSubmitErr + "。" : "尚未上传成功。") + "可点「重试上传」重新提交。");
+      stLine = el("p", lastSubmitErr ? "wp-msg bad" : "wp-msg", (lastSubmitErr ? "上传失败：" + lastSubmitErr + "。" : "尚未上传成功。") + "可点「重试上传」重新提交；多次失败请把这句错误截图发给教练。");
     } else {
       stLine = el("p", "wp-muted", "尚未提交。");
     }

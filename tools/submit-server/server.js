@@ -197,12 +197,14 @@ function chOf(n) { var m = n.match(/-(WEB|CRYPTO|MISC|REVERSE|PWN)-(\\d+)\\.md$/
 function nmOf(n) { var m = n.match(/^(.+)-(WEB|CRYPTO|MISC|REVERSE|PWN)-\\d+\\.md$/i); return m ? m[1] : n.replace(/\\.md$/i, ""); }
 function entOf(n) { var id = chOf(n), nm = nmOf(n); return entries.find(function (e) { return e.id === id && (e.name || "").toLowerCase() === nm.toLowerCase(); }) || null; }
 
+var lastSync = "";
 async function load() {
   try {
-    var r = await api("/api/list");
+    var r = await api("/api/list?t=" + Date.now());
     files = r;
-    var st = await api("/api/state");
+    var st = await api("/api/state?t=" + Date.now());
     entries = st.entries || [];
+    lastSync = new Date().toLocaleTimeString("zh-CN", { hour12: false });
     render();
   } catch (e) { $("#list").innerHTML = '<p class="err">' + e.message + '</p>'; }
 }
@@ -211,10 +213,18 @@ function render() {
   var host = $("#list"); host.innerHTML = "";
   var kw = $("#q").value.trim().toLowerCase();
   var shown = files.filter(function (f) { return !kw || f.name.toLowerCase().indexOf(kw) >= 0; });
-  $("#stat").textContent = "共 " + shown.length + " 篇 · 已审 " + shown.filter(function (f) { return entOf(f.name); }).length + " 篇";
-  if (!shown.length) { host.appendChild(el("p", "muted", "还没有学生提交。")); return; }
+  $("#stat").textContent = "提交库 · 共 " + shown.length + " 篇 · 已审 " + shown.filter(function (f) { return entOf(f.name); }).length +
+    " 篇 · 待审 " + shown.filter(function (f) { return !entOf(f.name); }).length + " 篇" +
+    (lastSync ? " · 最近刷新 " + lastSync : "");
+  if (!shown.length) { host.appendChild(el("p", "muted", "还没有学生提交。学生上传 .md 后这里会自动出现。")); return; }
   shown.forEach(function (f) { host.appendChild(card(f)); });
 }
+
+/* 每 15 秒自动拉一次；有正在查看/编辑的正文时跳过，避免打断 */
+setInterval(function () {
+  if ($("#list").querySelector("pre:not([hidden])")) return;
+  load();
+}, 15000);
 
 function card(f) {
   var c = el("div", "card");

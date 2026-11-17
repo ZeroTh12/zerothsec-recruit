@@ -63,7 +63,7 @@
     </section>
   </main>
 
-  <script src="assets/js/wp-config.js?v=20261118a"></script>
+  <script src="assets/js/wp-config.js?v=20261119a"></script>
   <script>
   (function () {
     "use strict";
@@ -106,15 +106,17 @@
       }) || null;
     }
 
+    var lastSync = "";
     async function load() {
       if (!RELAY) {
         $("#list").innerHTML = '<p class="wp-muted">提交库地址未配置：请在 assets/js/wp-config.js 里填好 relay。</p>';
         return;
       }
       try {
-        files = await api("/api/list");
-        var st = await api("/api/state");
+        files = await api("/api/list?t=" + Date.now());
+        var st = await api("/api/state?t=" + Date.now());
         entries = st.entries || [];
+        lastSync = new Date().toLocaleTimeString("zh-CN", { hour12: false });
         render();
       } catch (e) {
         $("#list").innerHTML = "";
@@ -122,13 +124,20 @@
       }
     }
 
+    /* 每 15 秒自动拉一次；有打开的正文/编辑框时跳过，避免打断 */
+    setInterval(function () {
+      var host = $("#list");
+      if (host.querySelector(".rev-body:not([hidden])")) return;
+      load();
+    }, 15000);
+
     function render() {
       var host = $("#list");
       host.innerHTML = "";
       var kw = ($("#q").value || "").trim().toLowerCase();
       var shown = files.filter(function (f) { return !kw || f.name.toLowerCase().indexOf(kw) >= 0; });
       var done = files.filter(function (f) { return entOf(f.name); }).length;
-      host.appendChild(el("p", "wp-kicker", "// 提交库 · " + files.length + " 篇 · 已审 " + done + " 篇 · 待审 " + (files.length - done) + " 篇"));
+      host.appendChild(el("p", "wp-kicker", "// 提交库 · " + files.length + " 篇 · 已审 " + done + " 篇 · 待审 " + (files.length - done) + " 篇" + (lastSync ? " · 最近刷新 " + lastSync : "")));
       if (!shown.length) { host.appendChild(el("p", "wp-muted", files.length ? "没有匹配的文件。" : "还没有学生提交。")); return; }
       shown.sort(function (a, b) { return String(b.updated || "").localeCompare(String(a.updated || "")); });
       shown.forEach(function (f) { host.appendChild(card(f)); });
