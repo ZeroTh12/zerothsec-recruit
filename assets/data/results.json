@@ -1,5 +1,5 @@
 {
-  "updated": "2026-11-17T14:33:22.424Z",
+  "updated": "2026-11-17T14:34:28.281Z",
   "note": "ZEROTHSEC 审核结果（教练审核台直接写入，勿手动改格式）",
   "entries": [
     {
@@ -7,7 +7,7 @@
       "name": "潘楚玲",
       "status": "rejected",
       "score": 0,
-      "reason": ""
+      "reason": "有问题"
     }
   ]
 }
