@@ -1,5 +1,5 @@
 {
-  "updated": "2026-11-17T15:04:30.311Z",
+  "updated": "2026-11-17T15:28:38.652Z",
   "note": "ZEROTHSEC 审核结果（教练审核台直接写入，勿手动改格式）",
   "entries": [
     {
@@ -15,15 +15,6 @@
       "status": "rejected",
       "score": 0,
       "reason": "不合格"
-    },
-    {
-      "id": "WEB-1",
-      "name": "TestB",
-      "status": "accepted",
-      "score": 92,
-      "reason": "",
-      "submittedAt": "2026-11-17T15:04:29Z",
-      "at": "2026-11-17T15:04:30.311Z"
     }
   ]
 }
