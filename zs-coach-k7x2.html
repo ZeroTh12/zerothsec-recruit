@@ -51,6 +51,8 @@
           <input type="search" id="q" placeholder="搜索：姓名 / 题号 / GitHub…">
           <button class="wp-btn is-mini" type="button" id="refresh">⟳ 刷新列表</button>
           <button class="wp-btn is-mini" type="button" id="import-btn">＋ 代入库 / 拖入文件</button>
+          <button class="wp-btn is-mini" type="button" id="ai-copy">🤖 复制待审 AI 包</button>
+          <button class="wp-btn is-mini" type="button" id="ai-import">📥 导入 AI 结论</button>
           <input type="file" id="picker" multiple accept=".md,.markdown,.txt" style="display:none">
         </div>
         <div id="import-panel" hidden class="wp-auth">
@@ -64,9 +66,10 @@
 
         <div class="wp-auth" style="margin-top:22px;">
           <h3 class="wp-task-title">审核结果发布</h3>
-          <p class="wp-muted">逐题「通过/打回」后，复制导出的 results.json → GitHub 网页端覆盖 assets/data/results.json → Commit。学生端自动显示结果与排行榜。</p>
+          <p class="wp-muted">逐题「通过/打回」后点一键发布（走中转，无需打开 GitHub）；未配置中转时复制 JSON 到 GitHub 网页端覆盖 assets/data/results.json。</p>
           <textarea id="export" class="wp-writeup-area" rows="8" readonly></textarea>
-          <button class="wp-btn is-mini is-primary" type="button" id="copy-out">复制 results.json</button>
+          <button class="wp-btn is-mini is-primary" type="button" id="pub-btn">⚡ 一键发布到站点</button>
+          <button class="wp-btn is-mini" type="button" id="copy-out">复制 results.json</button>
           <button class="wp-btn is-mini" type="button" id="dl-out">下载文件</button>
         </div>
       </div>
@@ -94,6 +97,15 @@
     function hasTok() { return !!tok(); }
     var RELAY = (CFG.relay || "").replace(/\/+$/, "");
     function hasWrite() { return !!RELAY || hasTok(); }
+    function coachKey() {
+      var k = "";
+      try { k = sessionStorage.getItem("zs_ck") || ""; } catch (e) { /* ignore */ }
+      if (!k) {
+        k = window.prompt("输入教练口令（部署 Worker 时自己设置的 COACH_KEY）：") || "";
+        try { sessionStorage.setItem("zs_ck", k); } catch (e) { /* ignore */ }
+      }
+      return k;
+    }
     function gh(path, opts) {
       var h = { Accept: "application/vnd.github+json" };
       if (hasTok()) h.Authorization = "Bearer " + tok();
@@ -140,7 +152,9 @@
     }
     async function delFile(name) {
       if (RELAY) {
-        var r = await fetch(RELAY + "/api/delete", { method: "POST", body: JSON.stringify({ name: name }) });
+        var body = { name: name };
+        if (RELAY) body.key = coachKey();
+        var r = await fetch(RELAY + "/api/delete", { method: "POST", body: JSON.stringify(body) });
         if (!r.ok) { var d = await r.json().catch(function () { return {}; }); throw new Error(d.error || ("HTTP " + r.status)); }
         return;
       }
@@ -394,6 +408,71 @@
     $("#refresh").addEventListener("click", function () { serverClear(); loadFiles(); loadResults(); });
     $("#q").addEventListener("input", renderList);
     function serverClear() { }
+
+    /* ---------- AI 辅助审查接口 ---------- */
+    $("#ai-copy").addEventListener("click", async function () {
+      var pending = files.filter(function (f) { return !entryFor(f.name); });
+      if (!pending.length) { alert("没有待审提交"); return; }
+      var lines = ["# ZEROTHSEC Writeup 待审包", "",
+        "请逐篇评审以下 Writeup，评估其是否真实、步骤是否清晰、结论是否正确。",
+        "只输出结论行，每行一个 JSON，不要任何其他文字：",
+        '{"name":"姓名","id":"题号","status":"accepted 或 rejected","score":分数,"reason":"一句评语或打回理由"}',
+        "", "---", ""];
+      for (var i = 0; i < pending.length; i++) {
+        var f = pending[i];
+        var text = "（读取失败）";
+        try { text = await readFile(f.name); } catch (e) { /* ignore */ }
+        var parsed = parseMd("", f.name);
+        var ch = chById(parsed.id);
+        lines.push("## " + f.name + "（题目：" + (ch ? ch.title : "?") + "，满分 " + (ch ? ch.score : "?") + "）");
+        lines.push("```md"); lines.push(text.slice(0, 6000)); lines.push("```"); lines.push("");
+      }
+      var pkg = lines.join("\n");
+      var b = this;
+      if (navigator.clipboard) navigator.clipboard.writeText(pkg).then(function () {
+        b.textContent = "已复制 " + pending.length + " 篇 ✓";
+        setTimeout(function () { b.textContent = "🤖 复制待审 AI 包"; }, 2000);
+      });
+      else window.prompt("手动复制：", pkg);
+    });
+    $("#ai-import").addEventListener("click", function () {
+      var t = window.prompt("粘贴 AI 输出的 JSON 结论（每行一个）：", "");
+      if (!t) return;
+      var n = 0;
+      t.split(/\r?\n/).forEach(function (line) {
+        line = line.trim();
+        if (!line || line.indexOf("{") !== 0) return;
+        try {
+          var o = JSON.parse(line);
+          if (!o.id) return;
+          entries = entries.filter(function (e) {
+            return !(e.id === o.id && (e.name || "").toLowerCase() === String(o.name || "").toLowerCase());
+          });
+          entries.push({
+            id: o.id, github: "", name: o.name || "?",
+            direction: (chById(o.id) || {}).dir || "",
+            status: o.status === "rejected" ? "rejected" : "accepted",
+            score: parseInt(o.score, 10) || 0, reason: o.reason || "",
+            at: new Date().toISOString(),
+          });
+          n++;
+        } catch (e) { /* 跳过非 JSON 行 */ }
+      });
+      alert("导入 " + n + " 条结论。核对无误后点「一键发布到站点」。");
+      renderList(); renderPublished();
+    });
+    $("#pub-btn").addEventListener("click", async function () {
+      var b = this;
+      if (!RELAY) { alert("未配置中转：请复制右侧 JSON 后到 GitHub 网页端覆盖 assets/data/results.json"); return; }
+      b.textContent = "发布中…";
+      try {
+        var r = await fetch(RELAY + "/api/publish", { method: "POST", body: JSON.stringify({ key: coachKey(), content: $("#export").value }) });
+        var d = await r.json().catch(function () { return {}; });
+        if (!r.ok) throw new Error(d.error || ("HTTP " + r.status));
+        b.textContent = "已发布 ✓";
+        setTimeout(function () { b.textContent = "⚡ 一键发布到站点"; }, 2500);
+      } catch (e) { b.textContent = "⚡ 一键发布到站点"; alert("发布失败：" + e.message); }
+    });
 
     /* ---------- 初始化 ---------- */
     function refreshTokUI() {

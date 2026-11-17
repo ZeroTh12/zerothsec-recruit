@@ -80,13 +80,18 @@ npm run dev
 - 审核结果的真实门禁在 GitHub 仓库写权限：只有教练能提交 `results.json` 与 `batches.json`
 - 管理页 `zs-coach-k7x2.html` 站内零链接 + noindex，但公开仓库文件列表可见其存在——页面本身不含数据，无实质风险
 
-## （可选升级）学生直连入库：Cloudflare Worker 中转
+## 学生直连入库：Cloudflare Worker 中转（部署后全站无人需要访问 GitHub）
 
-纯静态站 + 公开令牌 = 必被吊销，因此学生上传要"一步入库"需要一层极薄的中转（免费额度足够）：
+1. dash.cloudflare.com → Workers & Pages → Create Worker → 命名 `zs-submit` → 粘贴 `tools/submit-worker.js` 全文 → Deploy
+2. Worker Settings → Variables and Secrets → 添加两个 Secret：
+   - `GH_TOKEN` = 细粒度 PAT（仅 zerothsec-recruit 仓库 Contents 读写）
+   - `COACH_KEY` = 自定教练口令（管理页发布/删除时输入一次）
+3. 把 `https://zs-submit.<用户名>.workers.dev` 填入 `assets/js/wp-config.js` 的 `relay` 并推送
 
-1. 登录 dash.cloudflare.com → Workers & Pages → Create Worker，粘贴 `tools/submit-worker.js` 代码
-2. Settings → Variables → 添加 Secret `GH_TOKEN`（就是你那把细粒度 PAT，这次它只存在 Cloudflare 服务端）
-3. Deploy 得到 `https://xxx.workers.dev`，把 `wp-config.js` 的 `relay` 填为该地址
-4. 学生上传的 .md 会经 Worker 用服务端令牌写入仓库 `submissions/`，令牌不再出现在任何公开页面
+之后：学生上传 .md → 经 Worker 写入仓库 `submissions/`（学生不碰 GitHub）；
+教练管理页拖入审核、录入结论 → 点「⚡ 一键发布」经 Worker 写回 `results.json`（教练也不碰 GitHub）。
 
-`tools/submit-worker.js` 已备好（校验命名规范 + 限制大小 + 只允许写 submissions/ 前缀）。
+### AI 辅助审查接口（管理页）
+
+- 「🤖 复制待审 AI 包」：把所有未审 writeup（含题目标题、满分、正文）打包成评审提示词复制给任意 AI
+- 「📥 导入 AI 结论」：AI 按约定每行输出 `{"name","id","status","score","reason"}` JSON，粘贴回即可批量填审核结论，人工核对后一键发布

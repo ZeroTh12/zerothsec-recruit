@@ -1,16 +1,22 @@
 /* ZEROTHSEC 提交中转 Worker（Cloudflare Workers 免费额度足够）
    作用：学生静态页 → 本 Worker（服务端持有 GH_TOKEN）→ 仓库 submissions/。
-   令牌只存在 Cloudflare Secret 里，绝不出现在任何公开页面。
+   令牌只存在 Cloudflare Secret 里，绝不出现在任何公开页面；
+   学生与教练之后都只需要用网页，不需要访问 GitHub。
 
-   部署：
-     1. dash.cloudflare.com → Workers & Pages → Create Worker → 粘贴本文件 → Deploy
-     2. Worker Settings → Variables → Add Secret：GH_TOKEN = 细粒度 PAT
-        （仅 zerothsec-recruit 单仓库、Contents: read&write）
-     3. 可选 Variables：REPO（默认 ZeroTh12/zerothsec-recruit）、SUBDIR（默认 submissions）
-     4. 把站点 wp-config.js 的 relay 填为 https://<你的worker>.workers.dev
+   部署（一次性，约 3 分钟）：
+     1. dash.cloudflare.com → Workers & Pages → Create Worker → 命名 zs-submit →
+        把本文件全部内容粘贴进编辑器 → Deploy
+     2. Worker Settings → Variables and Secrets → Add：
+        - Secret  GH_TOKEN = 细粒度 PAT（仅 zerothsec-recruit 仓库 Contents 读写）
+        - Secret  COACH_KEY = 自己编一个教练口令（管理页发布结果/删除时要用）
+     3. 记下 https://zs-submit.<用户名>.workers.dev，发给我填入站点 wp-config.js 的 relay
 
-   安全：只允许写 SUBDIR 目录；文件名必须形如 <姓名>-<题号>.md/.txt（≤80 字符、无路径符）；
-   单文件 ≤200KB；不接受 README.md。 */
+   接口：
+     GET  /api/list                列 submissions/
+     GET  /api/read?name=x.md      读单个文件
+     POST /api/submit              {name, content} 学生入库（校验命名/大小）
+     POST /api/delete              {key, name}     教练删除（需 COACH_KEY）
+     POST /api/publish             {key, content}  教练发布 results.json（需 COACH_KEY） */
 
 function b64enc(s) {
   const b = new TextEncoder().encode(s);
@@ -47,11 +53,12 @@ export default {
       if (n === "README.md") return null;
       return /^[^/\\:*?"<>|]{1,80}\.(md|markdown|txt)$/i.test(n) ? n : null;
     };
-    const ghPath = (name) => `https://api.github.com/repos/${REPO}/contents/${DIR}/${encodeURIComponent(name)}`;
+    const ghFile = (p) => `https://api.github.com/repos/${REPO}/contents/${p}`;
+    const coachOk = (body) => env.COACH_KEY && String(body.key || "") === env.COACH_KEY;
 
     try {
       if (u.pathname === "/api/list") {
-        const r = await fetch(`https://api.github.com/repos/${REPO}/contents/${DIR}`, { headers: H });
+        const r = await fetch(ghFile(DIR), { headers: H });
         if (!r.ok) return json({ error: "gh " + r.status }, 502);
         const d = await r.json();
         return json((Array.isArray(d) ? d : [])
@@ -62,7 +69,7 @@ export default {
       if (u.pathname === "/api/read") {
         const name = safeName(u.searchParams.get("name"));
         if (!name) return json({ error: "bad name" }, 400);
-        const r = await fetch(ghPath(name), { headers: H });
+        const r = await fetch(ghFile(`${DIR}/${encodeURIComponent(name)}`), { headers: H });
         if (!r.ok) return json({ error: "gh " + r.status }, r.status === 404 ? 404 : 502);
         const d = await r.json();
         return json({ name, sha: d.sha, content: b64dec(d.content) });
@@ -75,27 +82,45 @@ export default {
         if (!name) return json({ error: "bad name（需 <姓名>-<题号>.md）" }, 400);
         if (content.length > 200000) return json({ error: "too large" }, 413);
         let sha = null;
-        const g = await fetch(ghPath(name), { headers: H });
+        const g = await fetch(ghFile(`${DIR}/${encodeURIComponent(name)}`), { headers: H });
         if (g.ok) sha = (await g.json()).sha;
         const payload = { message: "writeup: " + name, content: b64enc(content) };
         if (sha) payload.sha = sha;
-        const p = await fetch(ghPath(name), { method: "PUT", headers: H, body: JSON.stringify(payload) });
+        const p = await fetch(ghFile(`${DIR}/${encodeURIComponent(name)}`), { method: "PUT", headers: H, body: JSON.stringify(payload) });
         if (!p.ok) return json({ error: "gh " + p.status }, 502);
         return json({ ok: true });
       }
 
       if (u.pathname === "/api/delete" && req.method === "POST") {
         const body = await req.json();
+        if (!coachOk(body)) return json({ error: "教练口令错误" }, 403);
         const name = safeName(body.name);
         if (!name) return json({ error: "bad name" }, 400);
-        const g = await fetch(ghPath(name), { headers: H });
+        const g = await fetch(ghFile(`${DIR}/${encodeURIComponent(name)}`), { headers: H });
         if (!g.ok) return json({ error: "not found" }, 404);
         const sha = (await g.json()).sha;
-        const d = await fetch(ghPath(name), {
+        const d = await fetch(ghFile(`${DIR}/${encodeURIComponent(name)}`), {
           method: "DELETE", headers: H,
           body: JSON.stringify({ message: "coach delete: " + name, sha }),
         });
         if (!d.ok) return json({ error: "gh " + d.status }, 502);
+        return json({ ok: true });
+      }
+
+      if (u.pathname === "/api/publish" && req.method === "POST") {
+        const body = await req.json();
+        if (!coachOk(body)) return json({ error: "教练口令错误" }, 403);
+        const content = String(body.content || "");
+        try { JSON.parse(content); } catch (e) { return json({ error: "不是合法 JSON" }, 400); }
+        if (content.length > 500000) return json({ error: "too large" }, 413);
+        const p = "assets/data/results.json";
+        let sha = null;
+        const g = await fetch(ghFile(p), { headers: H });
+        if (g.ok) sha = (await g.json()).sha;
+        const payload = { message: "publish results", content: b64enc(content) };
+        if (sha) payload.sha = sha;
+        const r = await fetch(ghFile(p), { method: "PUT", headers: H, body: JSON.stringify(payload) });
+        if (!r.ok) return json({ error: "gh " + r.status }, 502);
         return json({ ok: true });
       }
 
