@@ -1,5 +1,5 @@
 {
-  "updated": "2026-11-17T13:06:25.179Z",
+  "updated": "2026-11-17T13:20:17.105Z",
   "note": "ZEROTHSEC 审核结果（教练审核台导出，勿手动改格式）",
   "entries": [
     {
@@ -8,6 +8,13 @@
       "status": "accepted",
       "score": 30,
       "reason": ""
+    },
+    {
+      "id": "WEB-01",
+      "name": "测试员",
+      "status": "accepted",
+      "score": 88,
+      "reason": "链路自检"
     }
   ]
 }
