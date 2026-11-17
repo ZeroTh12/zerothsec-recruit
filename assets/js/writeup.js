@@ -399,20 +399,25 @@
     return card;
   }
 
+  var renderSeq = 0;
   async function renderTasksView() {
     var host = $("#wp-view-tasks .wp-section-body");
     if (!host) return;
+    var seq = ++renderSeq;
     if (countdownTimer) { clearInterval(countdownTimer); countdownTimer = null; }
     host.innerHTML = "";
     host.appendChild(el("p", "wp-muted", "LOADING // 解密题库与批次…"));
 
-    if (!bank) {
+    /* 题库和批次必须都就绪，否则会误判成旧版“每周 5 题”模式 */
+    if (!bank || !batches) {
       try { await loadAll(); } catch (e) {
+        if (seq !== renderSeq) return;
         host.innerHTML = "";
         host.appendChild(el("p", "wp-msg bad", "题库解密失败：" + e.message));
         return;
       }
     }
+    if (seq !== renderSeq) return;   /* 已有更新的一次渲染，放弃本次避免重复横幅 */
     host.innerHTML = "";
 
     var pool = trackPool();
@@ -421,6 +426,7 @@
     var subs = mySubmissions();
     var myNames = {};
     (await serverSubNames(true)).forEach(function (n) { myNames[n] = true; });
+    if (seq !== renderSeq) return;
 
     function cardList(list) {
       var wrap = el("div", "wp-list");
@@ -752,10 +758,6 @@
     });
 
     initRouter();
-
-    window.ZSBank.loadBank().then(function () {
-      if (isLoggedIn() && view === "tasks") renderTasksView();
-    }).catch(function (e) { console.warn("[zs] 题库预热失败", e); });
   }
 
   if (document.readyState === "loading") {
