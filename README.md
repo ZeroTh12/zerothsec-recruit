@@ -23,11 +23,11 @@
   └─ 每日发题制：batches.json 配 start(周一) + daily(每天新题量，一周=daily×7 为一个周期)；
      每天 0 点解锁 daily 道新题，周日 23:59:59 周期截止，下周自动换下一段题；
      全题池按 难度→类别→题号 顺序切片，任何一天/任何一周绝不重题
-  └─ 提交：题卡内「上传 .md 文件」控件 → 校验规范命名 <姓名>-<题号>.md → 存入本机提交档案；
-     文件本体发 QQ 群给教练（纯静态无服务器，文件无法自动上传后台——README 如实说明）
-教练（隐藏审核页 zs-coach-k7x2.html，站内无链接、地址仅教练知晓、noindex）
-  └─ QQ 群收文件 → 整批拖入审核页 → 逐题看全文 → 通过(分数)/打回(理由)
-  └─ 复制导出的 results.json → GitHub 网页端覆盖 assets/data/results.json 提交
+  └─ 提交：题卡内「上传 .md 文件」控件 → 通过 GitHub Contents API 直接写入仓库 submissions/ 目录
+     （统一存放、教练管理页实时读取；未配置令牌或写入失败时退回本机存档 + QQ 群兜底）
+教练（隐藏管理页 zs-coach-k7x2.html，站内无链接、地址仅教练知晓、noindex）
+  └─ 自动列出 submissions/ 全部提交：查看全文 / 编辑 / 删除 / 代入库（增删改查）
+  └─ 逐题 通过(分数)/打回(理由) → 复制导出的 results.json → GitHub 网页端覆盖 assets/data/results.json 提交
 网页（04 页）
   └─ 拉取 results.json → 题卡显示 通过/打回/理由，排行榜按人聚合
 ```
@@ -74,5 +74,8 @@ npm run dev
 ## 安全模型（如实说明）
 
 - 题库多层加密可防直接读出明文与 flag，但解密逻辑在前端 JS，属高门槛混淆而非绝对防护
+- 学生上传的 Writeup 通过 GitHub Contents API 写入仓库 `submissions/`，使用的 `wp-config.js` 内嵌令牌是**公开可见**的：
+  必须使用**细粒度 PAT**（仅 `zerothsec-recruit` 单仓库 + 仅 Contents: read/write 权限 + 可设过期时间）。
+  最坏情况是被人往仓库提交垃圾文件——发现即在管理页删除，并到 GitHub 吊销重发令牌
 - 审核结果的真实门禁在 GitHub 仓库写权限：只有教练能提交 `results.json` 与 `batches.json`
-- 纯静态架构下不存在服务器密钥泄露面；`wp-config.js` 里只有仓库名与教练账号名等公开信息
+- 管理页 `zs-coach-k7x2.html` 站内零链接 + noindex，但公开仓库文件列表可见其存在——页面本身不含数据，无实质风险

@@ -83,12 +83,14 @@
     return (bank.challenges || []).find(function (c) { return c.id === id; }) || null;
   }
 
-  /* 教练发布结果 → 我的状态表 */
+  /* 教练发布结果 → 我的状态表（按 GitHub 用户名或姓名匹配） */
   function myStatusMap() {
     var map = {};
     if (!results || !profile.github) return map;
     (results.entries || []).forEach(function (e) {
-      if (e.github && e.github.toLowerCase() === profile.github.toLowerCase()) {
+      var ghOk = e.github && e.github.toLowerCase() === profile.github.toLowerCase();
+      var nmOk = e.name && profile.name && e.name === profile.name;
+      if (ghOk || nmOk) {
         map[e.id] = { status: e.status, score: e.score || 0, reason: e.reason || "", at: e.at || "" };
       }
     });
@@ -149,7 +151,55 @@
   }
 
   /* ==========================================================================
-     提交：上传 .md 控件 + 本机档案（文件本体发 QQ 群）
+     GitHub Contents API：把 writeup 文件直接存进仓库 submissions/ 目录
+     （纯静态站的"服务器"就是 GitHub 仓库本身；写入需 wp-config 里的细粒度令牌）
+     ========================================================================== */
+  var serverNames = null; // submissions/ 目录文件名缓存
+  function ghApi(path, opts) {
+    var t = (CFG.token || "").trim();
+    var h = { Accept: "application/vnd.github+json" };
+    if (t) h.Authorization = "Bearer " + t;
+    return fetch("https://api.github.com" + path,
+      Object.assign({ headers: h }, opts || {}));
+  }
+  function b64utf8(str) {
+    var bytes = new TextEncoder().encode(str);
+    var bin = "";
+    for (var i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+    return btoa(bin);
+  }
+  function subDir() { return CFG.subDir || "submissions"; }
+  function subPath(fname) {
+    return "/repos/" + CFG.repo + "/contents/" + subDir() + "/" + encodeURIComponent(fname);
+  }
+  async function serverSubmit(fname, content) {
+    if (!CFG.token) { var e = new Error("no-token"); e.code = "no-token"; throw e; }
+    var sha = null;
+    try {
+      var g = await ghApi(subPath(fname));
+      if (g.ok) sha = (await g.json()).sha;
+    } catch (err) { /* 新文件 */ }
+    var body = { message: "writeup: " + fname, content: b64utf8(content) };
+    if (sha) body.sha = sha;
+    var r = await ghApi(subPath(fname), { method: "PUT", body: JSON.stringify(body) });
+    if (!r.ok) throw new Error("GitHub 写入失败 HTTP " + r.status);
+    return true;
+  }
+  async function serverSubNames(force) {
+    if (serverNames && !force) return serverNames;
+    try {
+      var r = await ghApi("/repos/" + CFG.repo + "/contents/" + subDir());
+      if (!r.ok) return (serverNames = []);
+      var d = await r.json();
+      return (serverNames = (Array.isArray(d) ? d : [])
+        .map(function (f) { return f.name; })
+        .filter(function (n) { return n !== "README.md"; }));
+    } catch (e) { return (serverNames = []); }
+  }
+  function expectedFname(ch) { return profile.name + "-" + ch.id + ".md"; }
+
+  /* ==========================================================================
+     提交：上传 .md 控件 → 本机档案 + 自动写入仓库 submissions/
      ========================================================================== */
   function writeupTemplate(ch) {
     return [
@@ -206,12 +256,12 @@
     lsSave(SUBMIT_KEY, s);
   }
 
-  /* 卡片内的提交区：上传控件 + 模板下载 + 档案状态 */
-  function submitZone(card, ch, sub, refresh) {
+  /* 卡片内的提交区：上传控件 + 模板下载 + 服务器/本机状态 */
+  function submitZone(card, ch, sub, serverHas, refresh) {
     var zone = el("div", "wp-submit-zone");
 
-    var expectName = profile.name + "-" + ch.id + ".md";
-    zone.appendChild(el("p", "wp-hint", "规范命名：" + expectName + "。写好后用下方控件提交存档，并把文件发到 QQ 群给教练。"));
+    var expectName = expectedFname(ch);
+    zone.appendChild(el("p", "wp-hint", "规范命名：" + expectName + "。上传后自动存入仓库 submissions/，教练在管理页直接审核。"));
 
     var row = el("div", "wp-row");
     row.style.flexWrap = "wrap";
@@ -220,18 +270,27 @@
     fileIn.type = "file";
     fileIn.accept = ".md,.markdown,.txt";
     fileIn.className = "wp-file-input";
-    var upBtn = el("button", "wp-btn is-mini is-primary", sub ? "重新上传 .md" : "上传 .md 提交");
+    var upBtn = el("button", "wp-btn is-mini is-primary", (sub || serverHas) ? "重新上传 .md" : "上传 .md 提交");
     upBtn.type = "button";
     fileIn.addEventListener("change", function () {
       var f = fileIn.files && fileIn.files[0];
       if (!f) return;
       var reader = new FileReader();
-      reader.onload = function () {
+      reader.onload = async function () {
         var text = String(reader.result || "");
-        var ok = /^<!--ZSWP[\s\S]*?-->/.test(text) || f.name === expectName;
+        upBtn.textContent = "提交中…";
         saveSubmission(ch, f.name, text);
-        if (!ok) {
-          window.alert("已存档，但注意：文件名不是「" + expectName + "」或缺少 ZSWP 头，教练核对可能受影响。建议用模板重写。");
+        try {
+          await serverSubmit(expectedFname(ch), text);
+          serverNames = null;
+          await serverSubNames(true);
+          upBtn.textContent = "已入库 ✓";
+        } catch (err) {
+          if (err.code === "no-token") {
+            window.alert("站点尚未配置写入令牌：本次仅存本机档案。请把 " + expectedFname(ch) + " 同时发到 QQ 群。");
+          } else {
+            window.alert("入库失败（" + err.message + "）：已存本机档案，请把文件发到 QQ 群兜底。");
+          }
         }
         refresh();
       };
@@ -247,7 +306,7 @@
     row.appendChild(tplBtn);
 
     if (sub) {
-      var viewBtn = el("button", "wp-btn is-mini", "查看存档内容");
+      var viewBtn = el("button", "wp-btn is-mini", "查看本机存档");
       viewBtn.type = "button";
       var pre = el("pre", "wp-sub-view");
       pre.hidden = true;
@@ -257,26 +316,30 @@
       });
       row.appendChild(viewBtn);
 
-      var delBtn = el("button", "wp-btn is-mini", "撤回存档");
+      var delBtn = el("button", "wp-btn is-mini", "撤回本机存档");
       delBtn.type = "button";
       delBtn.addEventListener("click", function () {
-        if (window.confirm("撤回本机提交档案？（QQ 群里已发的文件不受影响）")) {
+        if (window.confirm("撤回本机存档？（仓库里的提交不受影响，如需删除请让教练在管理页操作）")) {
           removeSubmission(ch.id);
           refresh();
         }
       });
       row.appendChild(delBtn);
-
       zone.appendChild(row);
-      var info = el("p", "wp-msg ok",
-        "已存档：" + sub.filename + "（" + new Date(sub.at).toLocaleString("zh-CN") + "）· " + QQ_HINT);
-      zone.appendChild(info);
       zone.appendChild(pre);
     } else {
       zone.appendChild(row);
-      zone.appendChild(el("p", "wp-muted", QQ_HINT));
     }
 
+    var stLine;
+    if (serverHas) {
+      stLine = el("p", "wp-msg ok", "✓ 已提交入库（submissions/" + expectName + "），等待教练审核。重新上传会覆盖旧版。");
+    } else if (sub) {
+      stLine = el("p", "wp-msg", "已存本机档案，但未入库——请重试上传或发 QQ 群。");
+    } else {
+      stLine = el("p", "wp-muted", "尚未提交。");
+    }
+    zone.appendChild(stLine);
     card.appendChild(zone);
   }
 
@@ -284,22 +347,21 @@
      视图：题目 / 提交（星期制）
      ========================================================================== */
   function statusBadge(status) {
-    var map = { accepted: "已通过", rejected: "已打回", submitted: "已存档·待审" };
+    var map = { accepted: "已通过", rejected: "已打回", submitted: "已提交·待审" };
     var cls = { accepted: "b-solved", rejected: "b-cat", submitted: "b-pending" };
     var t = map[status.status] || status.status;
     if (status.status === "accepted" && status.score) t += " · " + status.score + "分";
     return el("span", "wp-badge " + (cls[status.status] || "b-cat"), t);
   }
 
-  function challengeCard(ch, status, sub, extra) {
+  function challengeCard(ch, status, sub, serverHas) {
     var card = el("div", "wp-task" + (status ? " is-" + status.status : ""));
     var main = el("div", "wp-task-main");
     var head = el("div", "wp-task-head");
     head.appendChild(el("h3", "wp-task-title", "【" + ch.id + "】" + ch.title));
     head.appendChild(el("span", "wp-badge b-cat", (CAT_LABEL[ch.dir] || ch.dir) + " · " + DIFF_LABEL[ch.diff] + " · " + ch.score + "分"));
     if (status) head.appendChild(statusBadge(status));
-    else if (sub) head.appendChild(statusBadge({ status: "submitted" }));
-    if (extra) head.appendChild(extra);
+    else if (serverHas || sub) head.appendChild(statusBadge({ status: "submitted" }));
     main.appendChild(head);
 
     var brief = el("p", "wp-task-brief", ch.desc.length > 140 ? ch.desc.slice(0, 140) + "…" : ch.desc);
@@ -335,7 +397,7 @@
 
     /* 提交区：已通过不再显示；打回/未交都可上传 */
     if (!status || status.status !== "accepted") {
-      submitZone(card, ch, sub, function () { renderTasksView(); });
+      submitZone(card, ch, sub, serverHas, function () { renderTasksView(); });
     }
     return card;
   }
@@ -360,11 +422,13 @@
     var plan = planNow();
     var statusMap = myStatusMap();
     var subs = mySubmissions();
+    var myNames = {};
+    (await serverSubNames(true)).forEach(function (n) { myNames[n] = true; });
 
     function cardList(list) {
       var wrap = el("div", "wp-list");
       list.forEach(function (ch) {
-        wrap.appendChild(challengeCard(ch, statusMap[ch.id] || null, subs[ch.id] || null));
+        wrap.appendChild(challengeCard(ch, statusMap[ch.id] || null, subs[ch.id] || null, !!myNames[expectedFname(ch)]));
       });
       return wrap;
     }
@@ -457,35 +521,46 @@
   }
 
   /* ==========================================================================
-     视图：我的提交（本机档案总览）
+     视图：我的提交（仓库 submissions/ 里属于你的入库记录 + 本机档案）
      ========================================================================== */
-  function renderMineView() {
+  async function renderMineView() {
     var host = $("#wp-view-mine .wp-section-body");
     if (!host) return;
     host.innerHTML = "";
+    host.appendChild(el("p", "wp-muted", "LOADING // 读取仓库提交记录…"));
+    var names = await serverSubNames(true);
     var subs = mySubmissions();
-    var keys = Object.keys(subs);
-    host.appendChild(el("p", "wp-muted",
-      "以下是你在这台浏览器里存档的 Writeup（共 " + keys.length + " 篇）。" +
-      "纯静态网站没有服务器，存档只在本机——每篇提交后记得把同一个 .md 文件发到 QQ 群，教练以群里的文件为准进行审核。"));
-    if (!keys.length) { host.appendChild(el("p", "wp-muted", "（还没有存档的提交）")); return; }
     var statusMap = myStatusMap();
-    keys.sort().forEach(function (id) {
-      var sub = subs[id];
+    host.innerHTML = "";
+
+    var mine = names.filter(function (n) {
+      return n.indexOf(profile.name + "-") === 0;
+    });
+    host.appendChild(el("p", "wp-kicker", "// 已入库 " + mine.length + " 篇（仓库 submissions/ 目录，教练直接审核）"));
+    if (!mine.length) {
+      host.appendChild(el("p", "wp-muted", "还没有入库的提交。去「题目 / 提交」页的题卡里上传 .md 文件。"));
+    }
+    mine.forEach(function (n) {
+      var idm = n.match(/((?:WEB|CRYPTO|MISC|REVERSE|PWN)-\d+)\.md$/i);
+      var id = idm ? idm[1].toUpperCase() : "";
       var box = el("div", "wp-auth");
-      box.style.marginBottom = "14px";
+      box.style.marginBottom = "12px";
       var h = el("div", "wp-row");
-      h.appendChild(el("h3", "wp-task-title", sub.filename));
+      h.appendChild(el("h3", "wp-task-title", n));
       var st = statusMap[id];
       h.appendChild(el("span", "wp-badge " + (st ? (st.status === "accepted" ? "b-solved" : "b-cat") : "b-pending"),
-        st ? (st.status === "accepted" ? "已通过 " + st.score + "分" : "打回：" + (st.reason || "")) : "等待教练审核"));
+        st ? (st.status === "accepted" ? "已通过 " + st.score + "分" : "打回：" + (st.reason || "")) : "待审核"));
       box.appendChild(h);
-      box.appendChild(el("p", "wp-muted", "存档时间：" + new Date(sub.at).toLocaleString("zh-CN")));
-      var pre = el("pre", "wp-sub-view");
-      pre.textContent = (sub.content || "").slice(0, 1200) + ((sub.content || "").length > 1200 ? "\n…" : "");
-      box.appendChild(pre);
       host.appendChild(box);
     });
+
+    var localOnly = Object.keys(subs).filter(function (id) { return mine.indexOf(expectedFname({ id: id })) < 0; });
+    if (localOnly.length) {
+      host.appendChild(el("p", "wp-kicker", "// 本机存档未入库 " + localOnly.length + " 篇（重新上传即可入库）"));
+      localOnly.forEach(function (id) {
+        host.appendChild(el("p", "wp-muted", id + " · " + subs[id].filename + " · " + new Date(subs[id].at).toLocaleString("zh-CN")));
+      });
+    }
   }
 
   /* ==========================================================================
@@ -497,13 +572,13 @@
     host.innerHTML = "";
     var entries = (results && results.entries) || [];
     if (!entries.length) {
-      host.appendChild(el("p", "wp-muted", "暂无排行数据。流程：你上传存档 + 发 .md 文件到 QQ 群 → 教练审核发布 results → 本页自动更新。"));
+      host.appendChild(el("p", "wp-muted", "暂无排行数据。流程：你在题卡上传 Writeup 入库 → 教练审核发布 results → 本页自动更新。"));
       return;
     }
     var byGh = {};
     entries.forEach(function (e) {
-      var k = (e.github || "unknown").toLowerCase();
-      if (!byGh[k]) byGh[k] = { github: e.github, name: e.name || e.github, dir: "", accepted: 0, rejected: 0, total: 0 };
+      var k = ((e.github && e.github !== "unknown" ? e.github : e.name) || "unknown").toLowerCase();
+      if (!byGh[k]) byGh[k] = { github: e.github || "", name: e.name || e.github || "?", dir: "", accepted: 0, rejected: 0, total: 0 };
       if (e.status === "accepted") { byGh[k].accepted++; byGh[k].total += (e.score || 0); }
       if (e.status === "rejected") byGh[k].rejected++;
       if (!byGh[k].dir && e.direction) byGh[k].dir = e.direction;
@@ -547,9 +622,9 @@
       "2. 每日发题制：**每天 0 点解锁 3 道新题**，一周为一个周期（共 21 题），周日 23:59 截止，下周自动换新题；题目按 易→难 排列，绝不重题\n" +
       "3. 点题目卡「去平台做题 ↗」在 CTF² 平台解题拿 flag（需注册 CTF²/MYDAS 账号）\n" +
       "4. 写 Writeup：点「下载空模板」→ 按模板写 → 保存为 <姓名>-<题号>.md\n" +
-      "5. 题卡内点「上传 .md 提交」存档到本站 + 把同一个文件发到招新答疑 QQ 群（两步都要）\n" +
-      "6. 教练审核后回本页看结果：通过计分上榜；打回看理由，改完重新上传\n" +
-      "7. 「我的提交」标签可查看本机所有存档"));
+      "5. 题卡内点「上传 .md 提交」→ 自动存入仓库 submissions/（教练管理页直接审核）\n" +
+      "6. 回本页看结果：通过计分上榜；打回看理由，改完重新上传\n" +
+      "7. 「我的提交」标签查看你已入库的全部 Writeup 与审核状态"));
     host.appendChild(box);
 
     var box2 = el("div", "wp-auth");
@@ -563,12 +638,11 @@
     host.appendChild(box2);
 
     var box3 = el("div", "wp-auth");
-    box3.appendChild(el("h3", "wp-task-title", "为什么提交要\"两步\"（如实说明）"));
+    box3.appendChild(el("h3", "wp-task-title", "提交存在哪里（如实说明）"));
     box3.appendChild(el("p", "wp-muted",
-      "本站是纯静态网站（GitHub Pages 托管），没有服务器，浏览器里上传的文件无法自动传到任何后台。" +
-      "所以题卡的「上传提交」把 Writeup 存进你本机的提交档案（防丢、可回看、教练结果对号入座），" +
-      "文件本体仍需你发到 QQ 群交给教练——这是纯静态架构下最接近\"网站内提交\"的方式。" +
-      "审核在教练的隐藏页完成，你看不到审核过程，只能看到最终结果。"));
+      "本站是纯静态网站，没有自建服务器——所谓\"统一存放\"，存放地就是 GitHub 仓库的 submissions/ 目录：" +
+      "你上传的 .md 通过 GitHub Contents API 直接写入仓库，教练的管理页实时读取该目录审核。" +
+      "若上传时提示未配置令牌或写入失败，请把文件发到招新答疑 QQ 群兜底（教练会代入库）。"));
     host.appendChild(box3);
   }
 
