@@ -1,5 +1,5 @@
-![[Pasted image 20261117195912.png]]
+![](assets/ZT-TEST-98/a.png)
 步骤一
-![[Pasted image 20261117202101.png|682]]
+![](assets/ZT-TEST-98/b.png)
 步骤二
-![[Pasted image 20261117212138.png|638]]
+![](assets/ZT-TEST-98/c.png)
