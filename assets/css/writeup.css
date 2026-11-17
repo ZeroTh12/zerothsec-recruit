@@ -460,3 +460,11 @@
 .wp-submit-panel { margin-top: 14px; padding: 14px 16px; border: 1px solid var(--line); background: var(--ink-2); }
 .wp-writeup-area { width: 100%; margin-top: 10px; padding: 12px; border: 1px solid var(--line); background: #050505; color: var(--bone); font: 400 12.5px/1.7 var(--font-mono); resize: vertical; }
 .wp-writeup-area:focus { outline: none; border-color: var(--acid); }
+
+/* v5: 星期制与上传提交 */
+.wp-submit-zone { grid-column: 1 / -1; margin-top: 12px; padding: 12px 14px; border: 1px solid var(--line); background: var(--ink-2); }
+.wp-file-input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.wp-sub-view { white-space: pre-wrap; font: 400 12px/1.7 var(--font-mono); color: var(--bone); background: #050505; border: 1px solid var(--line); padding: 12px; margin-top: 10px; max-height: 360px; overflow: auto; }
+.wp-week { margin: 14px 0; border: 1px solid var(--line); padding: 10px 14px; background: var(--ink-2); }
+.wp-week summary { cursor: pointer; font: 500 11px/1.8 var(--font-mono); letter-spacing: 0.08em; color: var(--muted); }
+.wp-week[open] summary { color: var(--acid); margin-bottom: 10px; }

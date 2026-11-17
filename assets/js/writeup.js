@@ -1,25 +1,23 @@
 /* ==========================================================================
-   ZEROTHSEC — Writeup 提交审核系统 v4（assets/js/writeup.js）
-   纯静态 · 无后端 · 学生端不接触 GitHub。
+   ZEROTHSEC — Writeup 提交系统 v5（assets/js/writeup.js）
+   纯静态 · 学生端不接触 GitHub · 星期制自动批次。
 
    流程：
-     - 登录/注册：GitHub 用户名 + 真实姓名 + 四条战线方向（存本机浏览器）
-     - 登录后才显示：题目/提交、排行榜、说明（教练账号另有审核台）
-     - 题目：严格按注册方向发题（TRACKS → 题库类别池），批次与倒计时来自
-       assets/data/batches.json（教练在 GitHub 网页端编辑即生效）
-     - 提交：页面生成规范命名 <姓名>-<题号>.md 文件供下载，
-       学生把文件发教练邮箱 / QQ 群 —— 不跳转 GitHub
-     - 审核：教练在「审核台」录入每题 通过/分数 或 打回/理由，
-       导出 results.json 内容 → 粘贴到 GitHub 网页端提交 → 学生端自动看到
-       结果与排行榜（看不到审核过程）
+     - 登录门禁：GitHub 用户名 + 真实姓名 + 四条战线方向（存本机浏览器），
+       登录后才显示题目/提交、排行榜、说明
+     - 题目：CTF² 平台 BUUCTF 真题；星期制批次（batches.json：start + weekly），
+       第 N 周 = 题库按 难度→类别→题号 排序切片，周日 23:59:59 截止，下周自动换新题
+     - 提交：题卡内「上传 .md 文件」控件（规范命名 <姓名>-<题号>.md），
+       内容校验后存入本机提交档案（localStorage）；文件本体发 QQ 群给教练。
+       纯静态站无服务器，文件无法自动上传到网站——审核在教练的隐藏审核页完成
+     - 结果：教练在隐藏审核页录入 通过/打回 → 发布 assets/data/results.json →
+       学生端题卡显示结果与排行榜（看不到审核过程与审核页）
    ========================================================================== */
 (function () {
   "use strict";
 
   var CFG = window.WP_CONFIG || { repo: "", coach: "" };
-  /* 题库原始类别（gen_bank / CTF2 导入维度） */
   var CAT_LABEL = { web: "Web", crypto: "Crypto", misc: "Misc", reverse: "Reverse", pwn: "Pwn" };
-  /* 工作室四条战线 → 题库类别池 */
   var TRACKS = {
     websec:    { label: "Web 安全",   cats: ["web", "crypto"] },
     rpwn:      { label: "逆向与 Pwn", cats: ["reverse", "pwn"] },
@@ -28,12 +26,12 @@
   };
   var CAT2TRACK = { web: "websec", crypto: "websec", reverse: "rpwn", pwn: "rpwn", misc: "forensics" };
   var DIFF_LABEL = { easy: "EASY", medium: "MEDIUM", hard: "HARD" };
+  var DIFF_RANK = { easy: 0, medium: 1, hard: 2 };
 
   var PROFILE_KEY = "zs-wp-profile";
-  var SOLVED_KEY = "zs-flag-ok";
-  var SUBMIT_KEY = "zs-wp-submitted";
-  var CTF_SOLVED_KEY = "zs-ctf-solved";
+  var SUBMIT_KEY = "zs-wp-submissions";
   var RESULTS_URL = "assets/data/results.json";
+  var QQ_HINT = "把该 .md 文件发到招新答疑 QQ 群（群二维码见 02 招新页·联系我们），教练在群里收文件";
 
   /* ---------- 小工具 ---------- */
   function $(sel, root) { return (root || document).querySelector(sel); }
@@ -49,15 +47,8 @@
     node.textContent = text;
     node.className = "wp-msg" + (kind ? " " + kind : "");
   }
-  function fmtTime(t) {
-    if (!t) return "—";
-    var d = new Date(t);
-    if (isNaN(d)) return String(t);
-    function p(x) { return String(x).padStart(2, "0"); }
-    return d.getFullYear() + "-" + p(d.getMonth() + 1) + "-" + p(d.getDate()) + " " + p(d.getHours()) + ":" + p(d.getMinutes());
-  }
-  function countdownText(deadline) {
-    var diff = new Date(deadline).getTime() - Date.now();
+  function countdownText(deadlineMs) {
+    var diff = deadlineMs - Date.now();
     if (diff <= 0) return "已截止";
     var d = Math.floor(diff / 86400000);
     var h = Math.floor((diff % 86400000) / 3600000);
@@ -72,6 +63,7 @@
   function lsSave(key, val) {
     try { window.localStorage.setItem(key, JSON.stringify(val)); } catch (e) { /* ignore */ }
   }
+  function chNum(c) { return parseInt(c.id.split("-")[1], 10); }
 
   /* ---------- 全局状态 ---------- */
   var profile = ls(PROFILE_KEY, { github: "", name: "", direction: "" });
@@ -79,24 +71,19 @@
     profile.direction = CAT2TRACK[profile.direction] || "";
     lsSave(PROFILE_KEY, profile);
   }
-  var bank = null;        // { challenges: [...] }
-  var batches = null;     // { websec:[...], ... }
-  var results = { entries: [] }; // 教练发布的审核结果
-  var resultsReady = false;
+  var bank = null;
+  var batches = null;   // { websec:{start,weekly}, ... }
+  var results = { entries: [] };
   var view = "tasks";
   var countdownTimer = null;
 
   function isLoggedIn() { return !!(profile.github && profile.name && profile.direction); }
-  function isCoach() {
-    return !!(CFG.coach && profile.github &&
-      profile.github.toLowerCase() === String(CFG.coach).toLowerCase());
-  }
   function chById(id) {
     if (!bank) return null;
     return (bank.challenges || []).find(function (c) { return c.id === id; }) || null;
   }
 
-  /* 教练结果 → 我的状态表 { "WEB-01": {status, score, reason} } */
+  /* 教练发布结果 → 我的状态表 */
   function myStatusMap() {
     var map = {};
     if (!results || !profile.github) return map;
@@ -108,8 +95,8 @@
     return map;
   }
 
-  /* 本机提交记录（下载过提交文件即视为已提交，等待教练结果） */
-  function mySubmittedMap() { return ls(SUBMIT_KEY, {}); }
+  /* 本机提交档案 */
+  function mySubmissions() { return ls(SUBMIT_KEY, {}); }
 
   /* ==========================================================================
      数据加载
@@ -124,11 +111,39 @@
       var r2 = await fetch(RESULTS_URL + "?ts=" + Date.now(), { cache: "no-store" });
       results = r2.ok ? await r2.json() : { entries: [] };
     } catch (e) { results = { entries: [] }; }
-    resultsReady = true;
   }
 
   /* ==========================================================================
-     提交 Writeup：生成规范命名 md 文件下载，不跳转 GitHub
+     星期制批次：第 N 周 = 题库池按 难度→类别→题号 排序切片
+     ========================================================================== */
+  function trackPool() {
+    var cats = (TRACKS[profile.direction] && TRACKS[profile.direction].cats) || [];
+    return bank.challenges.filter(function (c) { return cats.indexOf(c.dir) >= 0; })
+      .sort(function (a, b) {
+        return (DIFF_RANK[a.diff] - DIFF_RANK[b.diff]) ||
+               a.dir.localeCompare(b.dir) ||
+               chNum(a) - chNum(b);
+      });
+  }
+
+  function weekPlan() {
+    var cfg = (batches && batches[profile.direction]) || {};
+    var startMs = cfg.start ? new Date(cfg.start).getTime() : NaN;
+    var weekly = Math.max(1, parseInt(cfg.weekly, 10) || 5);
+    if (isNaN(startMs)) return { weekly: weekly, current: 1, startMs: Date.now() };
+    var W = 7 * 86400000;
+    var now = Date.now();
+    var n = now < startMs ? 0 : Math.floor((now - startMs) / W) + 1;
+    var deadline = startMs + n * W - 1000;
+    return { weekly: weekly, current: n, startMs: startMs, deadline: deadline, W: W };
+  }
+
+  function weekSlice(pool, plan, w) {
+    return pool.slice((w - 1) * plan.weekly, w * plan.weekly);
+  }
+
+  /* ==========================================================================
+     提交：上传 .md 控件 + 本机档案（文件本体发 QQ 群）
      ========================================================================== */
   function writeupTemplate(ch) {
     return [
@@ -144,11 +159,11 @@
       "",
       "## flag",
       "",
-      "（把你拿到的 flag 原样粘贴在这里）",
+      "（把你从 CTF² 平台拿到的 flag 原样粘贴在这里）",
       "",
       "## 解题思路 / 步骤",
       "",
-      "（写清楚：怎么发现切入点 → 每一步做了什么 → 拿到 flag。截图可另附，文字必须自述过程。）",
+      "（怎么发现切入点 → 每一步做了什么 → 拿到 flag。截图可另附发群，文字必须自述过程。）",
       "",
       "## 复盘",
       "",
@@ -157,89 +172,128 @@
     ].join("\n");
   }
 
-  function downloadMd(ch, content) {
-    var filename = profile.name + "-" + ch.id + ".md";
-    var blob = new Blob([content], { type: "text/markdown;charset=utf-8" });
+  function downloadTemplate(ch) {
+    var blob = new Blob([writeupTemplate(ch)], { type: "text/markdown;charset=utf-8" });
     var a = el("a");
     a.href = URL.createObjectURL(blob);
-    a.download = filename;
+    a.download = profile.name + "-" + ch.id + ".md";
     document.body.appendChild(a);
     a.click();
     setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 800);
+  }
+
+  function saveSubmission(ch, filename, content) {
     var s = ls(SUBMIT_KEY, {});
-    s[ch.id] = { at: new Date().toISOString(), name: profile.name };
+    s[ch.id] = {
+      filename: filename,
+      content: content,
+      at: new Date().toISOString(),
+      name: profile.name,
+      github: profile.github,
+    };
     lsSave(SUBMIT_KEY, s);
   }
 
-  /* 提交面板：题卡内展开 */
-  function openSubmitPanel(card, ch, refresh) {
-    var old = $(".wp-submit-panel", card);
-    if (old) { old.remove(); refresh && refresh(); return; }
+  function removeSubmission(chId) {
+    var s = ls(SUBMIT_KEY, {});
+    delete s[chId];
+    lsSave(SUBMIT_KEY, s);
+  }
 
-    var panel = el("div", "wp-submit-panel");
-    panel.appendChild(el("p", "wp-hint",
-      "写 Writeup → 生成 <" + profile.name + "-" + ch.id + ".md> 下载 → 把文件发到教练邮箱 19170040127@189.cn 或答疑 QQ 群（群二维码见 02 招新页）。" +
-      "教练审核后会发布结果，你回到本页即可看到 通过/打回。"));
+  /* 卡片内的提交区：上传控件 + 模板下载 + 档案状态 */
+  function submitZone(card, ch, sub, refresh) {
+    var zone = el("div", "wp-submit-zone");
 
-    var ta = el("textarea", "wp-writeup-area");
-    ta.placeholder = "在这里写你的 Writeup（flag / 思路步骤 / 复盘）。也可以先点「下载空模板」在本地编辑器写好再粘贴回来。";
-    ta.rows = 8;
-    panel.appendChild(ta);
+    var expectName = profile.name + "-" + ch.id + ".md";
+    zone.appendChild(el("p", "wp-hint", "规范命名：" + expectName + "。写好后用下方控件提交存档，并把文件发到 QQ 群给教练。"));
 
     var row = el("div", "wp-row");
-    row.style.marginTop = "10px";
+    row.style.flexWrap = "wrap";
+
+    var fileIn = el("input");
+    fileIn.type = "file";
+    fileIn.accept = ".md,.markdown,.txt";
+    fileIn.className = "wp-file-input";
+    var upBtn = el("button", "wp-btn is-mini is-primary", sub ? "重新上传 .md" : "上传 .md 提交");
+    upBtn.type = "button";
+    fileIn.addEventListener("change", function () {
+      var f = fileIn.files && fileIn.files[0];
+      if (!f) return;
+      var reader = new FileReader();
+      reader.onload = function () {
+        var text = String(reader.result || "");
+        var ok = /^<!--ZSWP[\s\S]*?-->/.test(text) || f.name === expectName;
+        saveSubmission(ch, f.name, text);
+        if (!ok) {
+          window.alert("已存档，但注意：文件名不是「" + expectName + "」或缺少 ZSWP 头，教练核对可能受影响。建议用模板重写。");
+        }
+        refresh();
+      };
+      reader.readAsText(f, "utf-8");
+    });
+    upBtn.addEventListener("click", function () { fileIn.click(); });
+    row.appendChild(upBtn);
+    row.appendChild(fileIn);
 
     var tplBtn = el("button", "wp-btn is-mini", "下载空模板");
     tplBtn.type = "button";
-    tplBtn.addEventListener("click", function () { downloadMd(ch, writeupTemplate(ch)); });
+    tplBtn.addEventListener("click", function () { downloadTemplate(ch); });
     row.appendChild(tplBtn);
 
-    var sendBtn = el("button", "wp-btn is-mini is-primary", "生成并下载我的 Writeup 文件");
-    sendBtn.type = "button";
-    sendBtn.addEventListener("click", function () {
-      var body = ta.value.trim();
-      var meta = writeupTemplate(ch).split("## flag")[0];
-      var content = body ? meta + "## flag\n\n" + body + "\n" : writeupTemplate(ch);
-      downloadMd(ch, content);
-      sendBtn.textContent = "已生成 ✓ 记得把文件发给教练";
-      sendBtn.disabled = true;
-    });
-    row.appendChild(sendBtn);
+    if (sub) {
+      var viewBtn = el("button", "wp-btn is-mini", "查看存档内容");
+      viewBtn.type = "button";
+      var pre = el("pre", "wp-sub-view");
+      pre.hidden = true;
+      viewBtn.addEventListener("click", function () {
+        pre.textContent = sub.content;
+        pre.hidden = !pre.hidden;
+      });
+      row.appendChild(viewBtn);
 
-    panel.appendChild(row);
-    card.appendChild(panel);
+      var delBtn = el("button", "wp-btn is-mini", "撤回存档");
+      delBtn.type = "button";
+      delBtn.addEventListener("click", function () {
+        if (window.confirm("撤回本机提交档案？（QQ 群里已发的文件不受影响）")) {
+          removeSubmission(ch.id);
+          refresh();
+        }
+      });
+      row.appendChild(delBtn);
+
+      zone.appendChild(row);
+      var info = el("p", "wp-msg ok",
+        "已存档：" + sub.filename + "（" + new Date(sub.at).toLocaleString("zh-CN") + "）· " + QQ_HINT);
+      zone.appendChild(info);
+      zone.appendChild(pre);
+    } else {
+      zone.appendChild(row);
+      zone.appendChild(el("p", "wp-muted", QQ_HINT));
+    }
+
+    card.appendChild(zone);
   }
 
   /* ==========================================================================
-     视图：题目 & 提交（严格按注册方向）
+     视图：题目 / 提交（星期制）
      ========================================================================== */
-  function trackCats() { return (TRACKS[profile.direction] && TRACKS[profile.direction].cats) || []; }
-
-  function trackBatchGroups() {
-    return ((batches && batches[profile.direction]) || [])
-      .map(function (b) {
-        return { batch: b.batch, deadline: b.deadline || "", note: b.note || "", ranges: b.ranges || {} };
-      })
-      .sort(function (a, b) { return (a.batch || 0) - (b.batch || 0); });
-  }
-
-  function statusBadge(status, score) {
-    var map = { accepted: "已通过", rejected: "已打回", submitted: "已提交·待审" };
+  function statusBadge(status) {
+    var map = { accepted: "已通过", rejected: "已打回", submitted: "已存档·待审" };
     var cls = { accepted: "b-solved", rejected: "b-cat", submitted: "b-pending" };
-    var t = map[status] || status;
-    if (status === "accepted" && score) t += " · " + score + "分";
-    return el("span", "wp-badge " + (cls[status] || "b-cat"), t);
+    var t = map[status.status] || status.status;
+    if (status.status === "accepted" && status.score) t += " · " + status.score + "分";
+    return el("span", "wp-badge " + (cls[status.status] || "b-cat"), t);
   }
 
-  function challengeCard(ch, status, solvedLocal, submitted) {
+  function challengeCard(ch, status, sub, extra) {
     var card = el("div", "wp-task" + (status ? " is-" + status.status : ""));
     var main = el("div", "wp-task-main");
     var head = el("div", "wp-task-head");
     head.appendChild(el("h3", "wp-task-title", "【" + ch.id + "】" + ch.title));
     head.appendChild(el("span", "wp-badge b-cat", (CAT_LABEL[ch.dir] || ch.dir) + " · " + DIFF_LABEL[ch.diff] + " · " + ch.score + "分"));
-    if (status && status.status !== "submitted") head.appendChild(statusBadge(status.status, status.score));
-    else if (submitted) head.appendChild(statusBadge("submitted"));
-    else if (solvedLocal) head.appendChild(el("span", "wp-badge b-pending", "flag 正确"));
+    if (status) head.appendChild(statusBadge(status));
+    else if (sub) head.appendChild(statusBadge({ status: "submitted" }));
+    if (extra) head.appendChild(extra);
     main.appendChild(head);
 
     var brief = el("p", "wp-task-brief", ch.desc.length > 140 ? ch.desc.slice(0, 140) + "…" : ch.desc);
@@ -262,7 +316,7 @@
     }
 
     if (status && status.status === "rejected" && status.reason) {
-      main.appendChild(el("p", "wp-msg bad", "教练打回理由：" + status.reason + " —— 修改后重新提交。"));
+      main.appendChild(el("p", "wp-msg bad", "教练打回理由：" + status.reason + " —— 修改后重新上传提交。"));
     }
     card.appendChild(main);
 
@@ -271,46 +325,12 @@
     score.appendChild(document.createTextNode(String(status && status.status === "accepted" ? status.score : ch.score)));
     score.appendChild(el("small", null, " PTS"));
     side.appendChild(score);
-
-    var acts = el("div", "wp-task-actions");
-
-    /* flag 校验（仅自造题有 flag；平台真题跳过，直接提交 Writeup） */
-    if (ch.flag && (!status || status.status !== "accepted")) {
-      var fin = el("input", "wp-flag-input");
-      fin.type = "text";
-      fin.placeholder = "粘贴 flag 校验";
-      fin.style.maxWidth = "150px";
-      var chk = el("button", "wp-btn is-mini", "校验");
-      chk.type = "button";
-      chk.addEventListener("click", function () {
-        var v = (fin.value || "").trim();
-        if (!v) return;
-        if (v === ch.flag) {
-          var s = ls(SOLVED_KEY, {}); s[ch.id] = true; lsSave(SOLVED_KEY, s);
-          chk.textContent = "✓ 正确"; chk.classList.add("is-primary"); fin.disabled = true;
-          renderTasksView();
-        } else {
-          chk.textContent = "✗ 再想想";
-          setTimeout(function () { chk.textContent = "校验"; }, 1200);
-        }
-      });
-      if (solvedLocal) { fin.value = ch.flag; fin.disabled = true; chk.textContent = "✓ 正确"; chk.classList.add("is-primary"); }
-      acts.appendChild(fin);
-      acts.appendChild(chk);
-    }
-
-    /* 提交按钮：展开本地提交面板（不跳 GitHub） */
-    if (!status || status.status !== "accepted") {
-      var submitBtn = el("button", "wp-btn is-primary is-mini", submitted ? "重新提交 Writeup" : "提交 Writeup");
-      submitBtn.type = "button";
-      submitBtn.addEventListener("click", function () {
-        openSubmitPanel(card, ch, function () {});
-      });
-      acts.appendChild(submitBtn);
-    }
-
-    side.appendChild(acts);
     card.appendChild(side);
+
+    /* 提交区：已通过不再显示；打回/未交都可上传 */
+    if (!status || status.status !== "accepted") {
+      submitZone(card, ch, sub, function () { renderTasksView(); });
+    }
     return card;
   }
 
@@ -330,83 +350,111 @@
     }
     host.innerHTML = "";
 
-    var cats = trackCats();
-    var chs = bank.challenges.filter(function (c) { return cats.indexOf(c.dir) >= 0; });
+    var pool = trackPool();
+    var plan = weekPlan();
+    var statusMap = myStatusMap();
+    var subs = mySubmissions();
 
-    /* 方向横幅 */
-    var banner = el("div", "wp-row");
-    banner.style.marginBottom = "14px";
-    banner.appendChild(el("p", "wp-kicker", "// 你的方向：" + TRACKS[profile.direction].label + " —— 只发放本方向题库（EASY → HARD 按批次递进）"));
+    /* 顶部横幅：方向 + 本周任务 + 倒计时 */
+    var banner = el("div", "wp-auth");
+    var bTitle = el("p", "wp-kicker", "// 方向：" + TRACKS[profile.direction].label +
+      " · 星期制批次 · 每周 " + plan.weekly + " 题（易→难自动递进）");
+    banner.appendChild(bTitle);
+    if (plan.current >= 1) {
+      var cd = el("p", "wp-msg", "");
+      cd.innerHTML = "本周（第 " + plan.current + " 周）截止倒计时：<b data-deadline=\"" + plan.deadline + "\">" +
+        countdownText(plan.deadline) + "</b>";
+      banner.appendChild(cd);
+    }
+    var done = 0, total = 0;
+    if (plan.current >= 1) {
+      weekSlice(pool, plan, plan.current).forEach(function (c) {
+        total++;
+        if (statusMap[c.id] && statusMap[c.id].status === "accepted") done++;
+      });
+      banner.appendChild(el("p", "wp-muted", "本周完成 " + done + " / " + total + " 题 · 累计通过 " +
+        Object.keys(statusMap).filter(function (k) { return statusMap[k].status === "accepted"; }).length + " 题"));
+    }
     host.appendChild(banner);
 
-    var solvedMap = ls(SOLVED_KEY, {});
-    var statusMap = myStatusMap();
-    var submittedMap = mySubmittedMap();
-
-    /* 批次分组 */
-    var groups = [];
-    var usedIds = {};
-    trackBatchGroups().forEach(function (b) {
-      var list = chs.filter(function (c) {
-        var rg = b.ranges[c.dir];
-        if (!rg) return false;
-        var n = parseInt(c.id.split("-")[1], 10);
-        var inRange = n >= rg[0] && n <= rg[1];
-        if (inRange) usedIds[c.id] = true;
-        return inRange;
-      });
-      if (list.length) groups.push({ batch: b, list: list });
-    });
-    var rest = chs.filter(function (c) { return !usedIds[c.id]; });
-    if (rest.length) groups.push({ batch: null, list: rest });
-
-    /* 统计卡 */
-    var myAccepted = Object.keys(statusMap).filter(function (k) { return statusMap[k].status === "accepted"; }).length;
-    var myPending = Object.keys(statusMap).filter(function (k) { return statusMap[k].status === "rejected"; }).length +
-      Object.keys(submittedMap).filter(function (k) { return !statusMap[k]; }).length;
-    var myScore = Object.keys(statusMap).reduce(function (a, k) { return a + (statusMap[k].status === "accepted" ? statusMap[k].score : 0); }, 0);
-    var stats = el("div", "wp-stats");
-    [
-      [chs.length, "本方向题库 BANK"],
-      [myAccepted, "已通过 ACCEPTED"],
-      [myPending, "待审 / 打回 REVIEW"],
-      [myScore + " 分", "累计得分 SCORE"],
-    ].forEach(function (p) {
-      var c = el("div", "wp-stat");
-      c.appendChild(el("b", null, String(p[0])));
-      c.appendChild(el("span", null, p[1]));
-      stats.appendChild(c);
-    });
-    host.appendChild(stats);
-
-    groups.forEach(function (g) {
-      var sec = el("div");
-      var head = el("div", "wp-row");
-      head.style.margin = "26px 0 12px";
-      var label = g.batch ? "// 第 " + g.batch.batch + " 批 · " + (g.batch.note || "") + " · " + g.list.length + " 题"
-                          : "// 未入批（预告，等教练发批次）· " + g.list.length + " 题";
-      head.appendChild(el("p", "wp-kicker", label));
-      if (g.batch && g.batch.deadline) {
-        var cd = el("span", "wp-badge b-pending", "");
-        cd.setAttribute("data-deadline", String(new Date(g.batch.deadline).getTime()));
-        cd.textContent = "⏳ 截止倒计时 " + countdownText(g.batch.deadline);
-        head.appendChild(cd);
-      }
-      sec.appendChild(head);
+    function cardList(list) {
       var wrap = el("div", "wp-list");
-      g.list.forEach(function (ch) {
-        var st = statusMap[ch.id] || (submittedMap[ch.id] ? { status: "submitted" } : null);
-        wrap.appendChild(challengeCard(ch, st, !!solvedMap[ch.id], !!submittedMap[ch.id]));
+      list.forEach(function (ch) {
+        wrap.appendChild(challengeCard(ch, statusMap[ch.id] || null, subs[ch.id] || null));
       });
-      sec.appendChild(wrap);
-      host.appendChild(sec);
+      return wrap;
+    }
+
+    /* 本周任务 */
+    if (plan.current >= 1) {
+      var cur = weekSlice(pool, plan, plan.current);
+      host.appendChild(el("p", "wp-kicker", "// 第 " + plan.current + " 周 · 本周任务 · " + cur.length + " 题"));
+      if (cur.length) host.appendChild(cardList(cur));
+      else host.appendChild(el("p", "wp-muted", "题库已刷完，联系教练从 CTF² 拉新题。"));
+
+      /* 下周预告（折叠） */
+      var next = weekSlice(pool, plan, plan.current + 1);
+      if (next.length) {
+        var nx = el("details", "wp-week");
+        nx.appendChild(el("summary", null, "下周预告 · " + next.length + " 题：" + next.map(function (c) { return c.id; }).join("、")));
+        nx.appendChild(cardList(next));
+        host.appendChild(nx);
+      }
+    }
+
+    /* 历史周（折叠，最近在前，最多 6 周） */
+    var hist = [];
+    for (var w = plan.current - 1; w >= 1 && hist.length < 6; w--) hist.push(w);
+    hist.forEach(function (w) {
+      var list = weekSlice(pool, plan, w);
+      if (!list.length) return;
+      var det = el("details", "wp-week");
+      det.appendChild(el("summary", null, "第 " + w + " 周（已截止）· " + list.length + " 题：" +
+        list.map(function (c) {
+          var s = statusMap[c.id];
+          return c.id + (s ? (s.status === "accepted" ? "✓" : "✗") : "·");
+        }).join("、")));
+      det.appendChild(cardList(list));
+      host.appendChild(det);
     });
 
     countdownTimer = setInterval(function () {
       $$("[data-deadline]", host).forEach(function (n) {
-        n.textContent = "⏳ 截止倒计时 " + countdownText(Number(n.getAttribute("data-deadline")));
+        n.textContent = countdownText(Number(n.getAttribute("data-deadline")));
       });
     }, 1000);
+  }
+
+  /* ==========================================================================
+     视图：我的提交（本机档案总览）
+     ========================================================================== */
+  function renderMineView() {
+    var host = $("#wp-view-mine .wp-section-body");
+    if (!host) return;
+    host.innerHTML = "";
+    var subs = mySubmissions();
+    var keys = Object.keys(subs);
+    host.appendChild(el("p", "wp-muted",
+      "以下是你在这台浏览器里存档的 Writeup（共 " + keys.length + " 篇）。" +
+      "纯静态网站没有服务器，存档只在本机——每篇提交后记得把同一个 .md 文件发到 QQ 群，教练以群里的文件为准进行审核。"));
+    if (!keys.length) { host.appendChild(el("p", "wp-muted", "（还没有存档的提交）")); return; }
+    var statusMap = myStatusMap();
+    keys.sort().forEach(function (id) {
+      var sub = subs[id];
+      var box = el("div", "wp-auth");
+      box.style.marginBottom = "14px";
+      var h = el("div", "wp-row");
+      h.appendChild(el("h3", "wp-task-title", sub.filename));
+      var st = statusMap[id];
+      h.appendChild(el("span", "wp-badge " + (st ? (st.status === "accepted" ? "b-solved" : "b-cat") : "b-pending"),
+        st ? (st.status === "accepted" ? "已通过 " + st.score + "分" : "打回：" + (st.reason || "")) : "等待教练审核"));
+      box.appendChild(h);
+      box.appendChild(el("p", "wp-muted", "存档时间：" + new Date(sub.at).toLocaleString("zh-CN")));
+      var pre = el("pre", "wp-sub-view");
+      pre.textContent = (sub.content || "").slice(0, 1200) + ((sub.content || "").length > 1200 ? "\n…" : "");
+      box.appendChild(pre);
+      host.appendChild(box);
+    });
   }
 
   /* ==========================================================================
@@ -418,7 +466,7 @@
     host.innerHTML = "";
     var entries = (results && results.entries) || [];
     if (!entries.length) {
-      host.appendChild(el("p", "wp-muted", "暂无排行数据。流程：你提交 Writeup 文件给教练 → 教练审核并发布 results → 本页自动更新。"));
+      host.appendChild(el("p", "wp-muted", "暂无排行数据。流程：你上传存档 + 发 .md 文件到 QQ 群 → 教练审核发布 results → 本页自动更新。"));
       return;
     }
     var byGh = {};
@@ -455,151 +503,6 @@
   }
 
   /* ==========================================================================
-     视图：审核台（仅教练账号；本地录入 → 导出 results.json 发布）
-     ========================================================================== */
-  function renderReviewView() {
-    var host = $("#wp-view-review .wp-section-body");
-    if (!host) return;
-    host.innerHTML = "";
-
-    if (!isCoach()) {
-      host.appendChild(el("p", "wp-msg bad", "无权限：审核台仅对教练账号（@" + (CFG.coach || "?") + "）开放。"));
-      return;
-    }
-
-    /* 内存工作副本 */
-    var list = ((results && results.entries) || []).map(function (e) { return Object.assign({}, e); });
-
-    var box = el("div", "wp-auth");
-    box.appendChild(el("h3", "wp-task-title", "录入审核结果"));
-    box.appendChild(el("p", "wp-muted",
-      "收到队员发来的 <姓名>-<题号>.md 后（邮箱 / QQ 群），在此逐题登记结论。可把 Writeup 内容粘贴给我（AI）辅助评审打分，你再定夺。"));
-
-    var form = el("div", "wp-row");
-    form.style.flexWrap = "wrap";
-
-    function field(label, node) {
-      var f = el("div", "wp-field");
-      f.appendChild(el("label", null, label));
-      f.appendChild(node);
-      return f;
-    }
-    var inId = el("input"); inId.placeholder = "题号 如 WEB-01"; inId.style.maxWidth = "130px";
-    var inGh = el("input"); inGh.placeholder = "GitHub 用户名"; inGh.style.maxWidth = "150px";
-    var inName = el("input"); inName.placeholder = "姓名"; inName.style.maxWidth = "110px";
-    var selSt = el("select");
-    [["accepted", "通过"], ["rejected", "打回"]].forEach(function (o) {
-      var op = el("option", null, o[1]); op.value = o[0]; selSt.appendChild(op);
-    });
-    var inScore = el("input"); inScore.type = "number"; inScore.placeholder = "分数(通过时)"; inScore.style.maxWidth = "110px";
-    var inReason = el("input"); inReason.placeholder = "打回理由(打回时必填)"; inReason.style.maxWidth = "220px";
-    form.appendChild(field("题号", inId));
-    form.appendChild(field("GitHub", inGh));
-    form.appendChild(field("姓名", inName));
-    form.appendChild(field("结论", selSt));
-    form.appendChild(field("分数", inScore));
-    form.appendChild(field("理由", inReason));
-    box.appendChild(form);
-
-    var msg = el("p", "wp-msg");
-    box.appendChild(msg);
-    var addBtn = el("button", "wp-btn is-primary", "加入结果列表");
-    addBtn.type = "button";
-    addBtn.addEventListener("click", function () {
-      var id = inId.value.trim().toUpperCase();
-      var gh = inGh.value.trim().replace(/^@/, "");
-      if (!id || !gh) return setMsg(msg, "题号与 GitHub 用户名必填", "bad");
-      if (selSt.value === "rejected" && !inReason.value.trim()) return setMsg(msg, "打回必须写理由", "bad");
-      var ch = chById(id);
-      var entry = {
-        id: id, github: gh, name: inName.value.trim() || gh,
-        direction: ch ? (TRACKS[CAT2TRACK[ch.dir]] ? CAT2TRACK[ch.dir] : ch.dir) : "",
-        status: selSt.value,
-        score: selSt.value === "accepted" ? (parseInt(inScore.value, 10) || (ch ? ch.score : 0)) : 0,
-        reason: inReason.value.trim(),
-        at: new Date().toISOString(),
-      };
-      list = list.filter(function (x) { return !(x.id === id && (x.github || "").toLowerCase() === gh.toLowerCase()); });
-      list.push(entry);
-      setMsg(msg, "已加入（共 " + list.length + " 条）。记得最后一步：导出并发布。", "ok");
-      inId.value = inGh.value = inName.value = inScore.value = inReason.value = "";
-      renderTable();
-    });
-    box.appendChild(addBtn);
-    host.appendChild(box);
-
-    /* 现有结果表 */
-    var tableBox = el("div", "wp-auth");
-    tableBox.appendChild(el("h3", "wp-task-title", "当前结果（含线上已发布 + 本次新增）"));
-    var tbodyHost = el("div");
-    tableBox.appendChild(tbodyHost);
-    host.appendChild(tableBox);
-
-    function renderTable() {
-      tbodyHost.innerHTML = "";
-      if (!list.length) { tbodyHost.appendChild(el("p", "wp-muted", "（空）")); exportOut.value = exportJson(list); return; }
-      var t = el("table", "wp-rank");
-      var hr = el("tr");
-      ["题号", "队员", "GitHub", "结论", "分", "理由", ""].forEach(function (h) { hr.appendChild(el("th", null, h)); });
-      var th = el("thead"); th.appendChild(hr); t.appendChild(th);
-      var tb = el("tbody");
-      list.slice().sort(function (a, b) { return (b.at || "").localeCompare(a.at || ""); }).forEach(function (e) {
-        var tr = el("tr");
-        tr.appendChild(el("td", null, e.id));
-        tr.appendChild(el("td", null, e.name || ""));
-        tr.appendChild(el("td", "rank-muted", "@" + e.github));
-        tr.appendChild(el("td", null, e.status === "accepted" ? "通过" : "打回"));
-        tr.appendChild(el("td", null, String(e.score || "")));
-        tr.appendChild(el("td", "rank-muted", e.reason || ""));
-        var delTd = el("td");
-        var del = el("button", "wp-btn is-mini", "删");
-        del.type = "button";
-        del.addEventListener("click", function () {
-          list = list.filter(function (x) { return x !== e; });
-          renderTable();
-        });
-        delTd.appendChild(del);
-        tr.appendChild(delTd);
-        tb.appendChild(tr);
-      });
-      t.appendChild(tb);
-      tbodyHost.appendChild(t);
-      exportOut.value = exportJson(list);
-    }
-
-    function exportJson(entries) {
-      return JSON.stringify({
-        updated: new Date().toISOString(),
-        note: "ZEROTHSEC 审核结果（教练审核台导出，勿手动改格式）",
-        entries: entries,
-      }, null, 2);
-    }
-
-    /* 导出与发布指引 */
-    var outBox = el("div", "wp-auth");
-    outBox.appendChild(el("h3", "wp-task-title", "导出并发布"));
-    outBox.appendChild(el("p", "wp-muted",
-      "发布：GitHub 仓库 → assets/data/results.json → 编辑 → 把下面内容整体粘贴覆盖 → Commit。" +
-      "学生端刷新即看到 通过/打回 与排行榜（他们看不到审核过程）。"));
-    var exportOut = el("textarea", "wp-writeup-area");
-    exportOut.rows = 10;
-    exportOut.readOnly = true;
-    outBox.appendChild(exportOut);
-    var copyBtn = el("button", "wp-btn is-mini is-primary", "复制 results.json");
-    copyBtn.type = "button";
-    copyBtn.addEventListener("click", function () {
-      if (navigator.clipboard) navigator.clipboard.writeText(exportOut.value).then(function () {
-        copyBtn.textContent = "已复制 ✓"; setTimeout(function () { copyBtn.textContent = "复制 results.json"; }, 1500);
-      });
-      else window.prompt("手动复制：", exportOut.value);
-    });
-    outBox.appendChild(copyBtn);
-    host.appendChild(outBox);
-
-    renderTable();
-  }
-
-  /* ==========================================================================
      视图：使用说明
      ========================================================================== */
   function renderGuideView() {
@@ -607,37 +510,39 @@
     if (!host) return;
     host.innerHTML = "";
     var box = el("div", "wp-auth");
-    box.appendChild(el("h3", "wp-task-title", "队员 · 提交流程"));
+    box.appendChild(el("h3", "wp-task-title", "队员 · 每周流程"));
     box.appendChild(el("p", "wp-muted",
-      "1. 登录（本页顶部）：GitHub 用户名 + 真实姓名 + 四条战线方向，保存在你自己的浏览器\n" +
-      "2. 登录后进入「题目/提交」：只看到你注册方向的题，按批次发放（EASY → HARD），每批有截止倒计时\n" +
-      "3. 解题：题目全部来自 CTF² 平台 BUUCTF 真题，点「去平台做题」在 CTF² 完成并拿到 flag\n" +
-      "4. 点「提交 Writeup」→ 在面板里写（或下载空模板本地写好粘贴回来）→ 生成 <姓名>-<题号>.md 下载\n" +
-      "5. 把该文件发到教练邮箱 19170040127@189.cn 或答疑 QQ 群 —— 全程不需要 GitHub\n" +
-      "6. 回本页看结果：通过计分上榜；打回会显示理由，修改后点「重新提交」"));
+      "1. 登录（GitHub 用户名 + 真实姓名 + 方向）——方向决定题目池，每周自动换一批\n" +
+      "2. 看「本周任务」：每周 " + ((weekPlan().weekly) || 5) + " 题，周日 23:59 截止，倒计时在面板顶部\n" +
+      "3. 点题目卡「去平台做题 ↗」在 CTF² 平台解题拿 flag（需注册 CTF²/MYDAS 账号）\n" +
+      "4. 写 Writeup：点「下载空模板」→ 按模板写 → 保存为 <姓名>-<题号>.md\n" +
+      "5. 题卡内点「上传 .md 提交」存档到本站 + 把同一个文件发到招新答疑 QQ 群（两步都要）\n" +
+      "6. 教练审核后回本页看结果：通过计分上榜；打回看理由，改完重新上传\n" +
+      "7. 「我的提交」标签可查看本机所有存档"));
     host.appendChild(box);
 
     var box2 = el("div", "wp-auth");
-    box2.appendChild(el("h3", "wp-task-title", "教练 · 审核流程（仅 @" + (CFG.coach || "?") + " 可见审核台）"));
+    box2.appendChild(el("h3", "wp-task-title", "教练 · 审核（隐藏页，地址不外发）"));
     box2.appendChild(el("p", "wp-muted",
-      "1. 收到 md 文件 → 可把内容粘贴给 AI 辅助评审拿分数建议 → 自己定夺\n" +
-      "2. 审核台逐题录入：通过（分数）或 打回（理由）\n" +
-      "3. 点「复制 results.json」→ GitHub 网页端覆盖 assets/data/results.json → Commit\n" +
-      "4. 学生端自动看到结果与排行榜\n" +
-      "5. 发批次：GitHub 网页端编辑 assets/data/batches.json（战线 key / 批号 / deadline / ranges 题号区间）\n" +
-      "6. 加题：python tools/gen_bank.py，或从 CTF2 平台导入（tools/import_ctf2.py）"));
+      "1. 在 QQ 群收齐本周 <姓名>-<题号>.md 文件\n" +
+      "2. 打开教练审核页（站内无链接，地址仅教练知晓），把文件整批拖入\n" +
+      "3. 逐题看全文，可把内容粘贴给 AI 辅助评审拿分数建议 → 自己定夺\n" +
+      "4. 录入 通过(分数)/打回(理由) → 复制导出的 results.json → GitHub 网页端覆盖 assets/data/results.json 提交\n" +
+      "5. 学生端自动显示结果与排行榜；发题是星期制自动的，改 batches.json 的 weekly 即可调每周题量"));
     host.appendChild(box2);
 
     var box3 = el("div", "wp-auth");
-    box3.appendChild(el("h3", "wp-task-title", "安全模型（如实说明）"));
+    box3.appendChild(el("h3", "wp-task-title", "为什么提交要\"两步\"（如实说明）"));
     box3.appendChild(el("p", "wp-muted",
-      "纯静态架构：身份与提交记录存本机浏览器；题目与答案经多层加密存放（bank.enc.js），运行时解密，属高门槛混淆。" +
-      "审核结果的真实门禁在 GitHub 仓库写权限：只有教练能提交 results.json。"));
+      "本站是纯静态网站（GitHub Pages 托管），没有服务器，浏览器里上传的文件无法自动传到任何后台。" +
+      "所以题卡的「上传提交」把 Writeup 存进你本机的提交档案（防丢、可回看、教练结果对号入座），" +
+      "文件本体仍需你发到 QQ 群交给教练——这是纯静态架构下最接近\"网站内提交\"的方式。" +
+      "审核在教练的隐藏页完成，你看不到审核过程，只能看到最终结果。"));
     host.appendChild(box3);
   }
 
   /* ==========================================================================
-     登录门禁：未登录只显示登录卡；登录后才显示题目/排行榜/审核台
+     登录门禁
      ========================================================================== */
   function renderGate() {
     var gate = $("#wp-gate");
@@ -645,9 +550,6 @@
     var logged = isLoggedIn();
     if (gate) gate.hidden = logged;
     if (app) app.hidden = !logged;
-    var reviewTab = $$(".wp-tab").filter(function (t) { return t.getAttribute("data-view") === "review"; })[0];
-    if (reviewTab) reviewTab.hidden = !isCoach();
-    if (!isCoach() && view === "review") view = "tasks";
     var who = $("#wp-whoami");
     if (who) {
       who.textContent = logged
@@ -662,7 +564,6 @@
     }
   }
 
-  /* ---------- 身份表单 ---------- */
   function bindProfileForm() {
     var f = $("#wp-profile-form");
     if (!f) return;
@@ -692,7 +593,7 @@
     });
     var logoutBtn = $("#wp-logout-btn");
     if (logoutBtn) logoutBtn.addEventListener("click", function () {
-      if (!window.confirm("退出登录（清除本机身份）？")) return;
+      if (!window.confirm("退出登录（清除本机身份，提交档案保留）？")) return;
       profile = { github: "", name: "", direction: "" };
       lsSave(PROFILE_KEY, profile);
       view = "tasks";
@@ -704,11 +605,13 @@
   /* ==========================================================================
      路由 & 初始化
      ========================================================================== */
+  var VIEWS = ["tasks", "mine", "rank", "guide"];
+
   function renderCurrent() {
     if (!isLoggedIn()) { renderGate(); return; }
     if (view === "tasks") renderTasksView();
+    else if (view === "mine") renderMineView();
     else if (view === "rank") renderRankView();
-    else if (view === "review") renderReviewView();
     else if (view === "guide") renderGuideView();
     else renderTasksView();
   }
@@ -716,8 +619,7 @@
   function initRouter() {
     function readHash() {
       var h = (location.hash || "").replace(/^#\//, "");
-      view = ["tasks", "rank", "review", "guide"].indexOf(h) >= 0 ? h : "tasks";
-      if (view === "review" && !isCoach()) view = "tasks";
+      view = VIEWS.indexOf(h) >= 0 ? h : "tasks";
       $$(".wp-tab").forEach(function (t) {
         t.classList.toggle("is-on", t.getAttribute("data-view") === view);
       });
@@ -735,8 +637,8 @@
       /* 集成模式（ctf.html）：只提供解题记录接口 */
       window.ZerothSecWriteup = {
         recordSolve: function (challengeId) {
-          var q = ls(CTF_SOLVED_KEY, []);
-          if (q.indexOf(challengeId) < 0) { q.push(challengeId); lsSave(CTF_SOLVED_KEY, q); }
+          var q = ls("zs-ctf-solved", []);
+          if (q.indexOf(challengeId) < 0) { q.push(challengeId); lsSave("zs-ctf-solved", q); }
           return Promise.resolve({ recorded: true });
         },
         isLoggedIn: function () { return isLoggedIn(); },
@@ -757,7 +659,6 @@
 
     initRouter();
 
-    /* 预热解密 */
     window.ZSBank.loadBank().then(function () {
       if (isLoggedIn() && view === "tasks") renderTasksView();
     }).catch(function (e) { console.warn("[zs] 题库预热失败", e); });

@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="robots" content="noindex, nofollow, noarchive">
+  <meta name="theme-color" content="#0a0a0a">
+  <title>ZS Console</title>
+  <link rel="stylesheet" href="assets/css/main.css?v=20261105">
+  <link rel="stylesheet" href="assets/css/at-template.css?v=20261109">
+  <link rel="stylesheet" href="assets/css/writeup.css?v=20261117e">
+  <style>
+    .drop-zone { border: 1px dashed var(--line-strong); padding: 34px; text-align: center; color: var(--muted); margin: 18px 0; transition: border-color .2s, color .2s; }
+    .drop-zone.on { border-color: var(--acid); color: var(--acid); }
+    .rev-card { border: 1px solid var(--line); background: var(--ink-2); padding: 16px 18px; margin-bottom: 16px; }
+    .rev-head { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; margin-bottom: 8px; }
+    .rev-body { white-space: pre-wrap; font: 400 12.5px/1.7 var(--font-mono); color: var(--bone); background: #050505; border: 1px solid var(--line); padding: 12px; max-height: 420px; overflow: auto; }
+    .rev-body h1, .rev-body h2, .rev-body h3 { font-size: 14px; margin: 10px 0 6px; color: var(--acid); }
+    .rev-body code { background: #111; padding: 1px 5px; }
+    .rev-body pre { background: #111; padding: 8px; overflow: auto; }
+    .rev-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-top: 10px; }
+    .rev-actions input { background: #050505; color: var(--bone); border: 1px solid var(--line); padding: 8px 10px; font: 400 12px var(--font-mono); }
+    .table-wrap { overflow: auto; }
+    .secret-note { color: var(--red); font: 600 12px/1.7 var(--font-mono); }
+  </style>
+</head>
+<body>
+  <a class="skip-link" href="#main">跳转到主要内容</a>
+
+  <header class="site-header">
+    <div class="wrap header-inner">
+      <a class="brand" href="#" aria-label="ZS Console">
+        <span class="brand-text">
+          <span class="brand-name">ZS·CONSOLE</span>
+          <span class="brand-sub">ZEROTHSEC 教练审核台 · 内部</span>
+        </span>
+      </a>
+      <div class="head-actions">
+        <span class="status"><i class="status-dot"></i>PRIVATE</span>
+        <a class="btn btn-small" href="writeup.html">返回学生站 ↗</a>
+      </div>
+    </div>
+  </header>
+
+  <main id="main">
+    <section class="content-section wp-section">
+      <div class="wrap">
+        <span class="kicker">COACH REVIEW / Writeup 审核</span>
+        <p class="secret-note">此页地址请勿外发。页面本身不含任何学生数据；数据来自你拖入的文件与线上 results.json。</p>
+
+        <div class="drop-zone" id="drop">
+          把 QQ 群收到的 <b>&lt;姓名&gt;-&lt;题号&gt;.md</b> 文件拖到这里（支持多选）<br>
+          <small>或 <label style="color:var(--acid);cursor:pointer;">选择文件<input type="file" id="picker" multiple accept=".md,.markdown,.txt" style="display:none"></label> · 也可粘贴文本（下方）</small>
+        </div>
+        <div class="wp-field" style="margin-bottom:20px;">
+          <textarea id="paste-area" class="wp-writeup-area" rows="4" placeholder="或把 Writeup 文本直接粘贴到这里，点「解析粘贴内容」加入审核队列（需含 ZSWP 头或按 <姓名>-<题号>.md 命名规则在首行标题）。"></textarea>
+          <button class="wp-btn is-mini" type="button" id="parse-paste">解析粘贴内容</button>
+        </div>
+
+        <div id="queue"></div>
+
+        <div class="wp-auth" style="margin-top:26px;">
+          <h3 class="wp-task-title">已发布结果（线上 results.json + 本次录入）</h3>
+          <div class="table-wrap" id="published"></div>
+        </div>
+
+        <div class="wp-auth" style="margin-top:18px;">
+          <h3 class="wp-task-title">导出并发布</h3>
+          <p class="wp-muted">发布：GitHub 仓库 → assets/data/results.json → 编辑 → 粘贴覆盖 → Commit。学生端刷新即生效。</p>
+          <textarea id="export" class="wp-writeup-area" rows="10" readonly></textarea>
+          <button class="wp-btn is-mini is-primary" type="button" id="copy-out">复制 results.json</button>
+          <button class="wp-btn is-mini" type="button" id="dl-out">下载文件</button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script src="assets/js/bank.js?v=20261117b"></script>
+  <script src="assets/data/bank.enc.js?v=20261117d"></script>
+  <script>
+  (function () {
+    "use strict";
+    var $ = function (s) { return document.querySelector(s); };
+    var bank = null;
+    var entries = [];          // 合并后的结果列表
+    var queueItems = [];       // 本次拖入待审 {id,name,github,direction,content,filename}
+
+    function chById(id) { return bank && (bank.challenges || []).find(function (c) { return c.id === id; }) || null; }
+
+    /* ---------- 解析 .md ---------- */
+    function parseMd(text, filename) {
+      var meta = { id: "", name: "", github: "", direction: "" };
+      var m = text.match(/<!--ZSWP([\s\S]*?)-->/);
+      if (m) {
+        ["id", "name", "github", "direction"].forEach(function (k) {
+          var mm = m[1].match(new RegExp("^\\s*" + k + "\\s*:\\s*(.+)$", "m"));
+          if (mm) meta[k] = mm[1].trim();
+        });
+      }
+      if (!meta.id) {
+        var fm = (filename || "").match(/^(.+)-((?:WEB|CRYPTO|MISC|REVERSE|PWN)-\d+)\.md$/i);
+        if (fm) { meta.name = fm[1]; meta.id = fm[2].toUpperCase(); }
+      }
+      if (!meta.id) {
+        var tm = text.match(/((?:WEB|CRYPTO|MISC|REVERSE|PWN)-\d+)/i);
+        if (tm) meta.id = tm[1].toUpperCase();
+      }
+      meta.filename = filename || (meta.name + "-" + meta.id + ".md");
+      meta.content = text;
+      return meta;
+    }
+
+    /* ---------- 迷你 Markdown 渲染（转义后） ---------- */
+    function mdLite(src) {
+      var esc = String(src).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      esc = esc.replace(/```([\s\S]*?)```/g, function (_, c) { return "<pre>" + c.trim() + "</pre>"; });
+      esc = esc.replace(/^### (.*)$/gm, "<h3>$1</h3>")
+               .replace(/^## (.*)$/gm, "<h2>$1</h2>")
+               .replace(/^# (.*)$/gm, "<h1>$1</h1>");
+      esc = esc.replace(/`([^`]+)`/g, "<code>$1</code>")
+               .replace(/\*\*([^*]+)\*\*/g, "<b>$1</b>")
+               .replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g, "<a href='$2' target='_blank' rel='noopener'>$1</a>");
+      return esc;
+    }
+
+    /* ---------- 队列渲染 ---------- */
+    function renderQueue() {
+      var host = $("#queue");
+      host.innerHTML = "";
+      if (!queueItems.length) { host.innerHTML = '<p class="wp-muted">（审核队列为空——拖入文件后逐题定夺）</p>'; return; }
+      queueItems.forEach(function (q, idx) {
+        var ch = chById(q.id);
+        var card = document.createElement("div");
+        card.className = "rev-card";
+
+        var head = document.createElement("div");
+        head.className = "rev-head";
+        head.innerHTML = "<b>" + (q.id || "?") + "</b> " +
+          "<span>" + (ch ? ch.title : "（题号不在题库）") + "</span>" +
+          "<span class='wp-muted'>@ " + (q.github || "?") + " / " + (q.name || "?") + "</span>" +
+          "<span class='wp-badge b-cat'>" + (ch ? ch.score + "分" : "-") + "</span>" +
+          "<span class='wp-muted'>" + q.filename + "</span>";
+        card.appendChild(head);
+
+        var body = document.createElement("div");
+        body.className = "rev-body";
+        body.innerHTML = mdLite(q.content.replace(/<!--ZSWP[\s\S]*?-->/, "").trim().slice(0, 8000));
+        card.appendChild(body);
+
+        var acts = document.createElement("div");
+        acts.className = "rev-actions";
+        var sc = document.createElement("input");
+        sc.type = "number"; sc.placeholder = "分数"; sc.value = ch ? ch.score : 20; sc.style.maxWidth = "90px";
+        var rs = document.createElement("input");
+        rs.placeholder = "打回理由（打回必填）"; rs.style.flex = "1"; rs.style.minWidth = "180px";
+        var okBtn = document.createElement("button");
+        okBtn.className = "wp-btn is-mini is-primary"; okBtn.textContent = "通过";
+        okBtn.addEventListener("click", function () { decide(q, "accepted", parseInt(sc.value, 10) || 0, ""); });
+        var noBtn = document.createElement("button");
+        noBtn.className = "wp-btn is-mini"; noBtn.textContent = "打回";
+        noBtn.addEventListener("click", function () {
+          if (!rs.value.trim()) { window.alert("打回必须写理由"); return; }
+          decide(q, "rejected", 0, rs.value.trim());
+        });
+        var rmBtn = document.createElement("button");
+        rmBtn.className = "wp-btn is-mini"; rmBtn.textContent = "移出队列";
+        rmBtn.addEventListener("click", function () { queueItems.splice(idx, 1); renderQueue(); });
+        acts.appendChild(sc); acts.appendChild(rs); acts.appendChild(okBtn); acts.appendChild(noBtn); acts.appendChild(rmBtn);
+        card.appendChild(acts);
+
+        host.appendChild(card);
+      });
+    }
+
+    function decide(q, status, score, reason) {
+      if (!q.id || !q.github) { window.alert("该文件缺少题号或 GitHub 用户名（ZSWP 头/命名规范），请让学生补全"); return; }
+      entries = entries.filter(function (e) { return !(e.id === q.id && (e.github || "").toLowerCase() === q.github.toLowerCase()); });
+      entries.push({
+        id: q.id, github: q.github, name: q.name || q.github,
+        direction: q.direction || (chById(q.id) ? q.id.split("-")[0].toLowerCase() : ""),
+        status: status, score: score, reason: reason,
+        at: new Date().toISOString(),
+      });
+      queueItems = queueItems.filter(function (x) { return x !== q; });
+      renderQueue();
+      renderPublished();
+    }
+
+    /* ---------- 已发布表 ---------- */
+    function renderPublished() {
+      var host = $("#published");
+      host.innerHTML = "";
+      if (!entries.length) { host.innerHTML = '<p class="wp-muted">（无结果）</p>'; $("#export").value = exportJson(); return; }
+      var t = document.createElement("table");
+      t.className = "wp-rank";
+      t.innerHTML = "<thead><tr><th>题号</th><th>队员</th><th>GitHub</th><th>结论</th><th>分</th><th>理由</th><th></th></tr></thead>";
+      var tb = document.createElement("tbody");
+      entries.slice().sort(function (a, b) { return (b.at || "").localeCompare(a.at || ""); }).forEach(function (e) {
+        var tr = document.createElement("tr");
+        tr.innerHTML = "<td>" + e.id + "</td><td>" + (e.name || "") + "</td><td>@" + e.github + "</td><td>" +
+          (e.status === "accepted" ? "通过" : "打回") + "</td><td>" + (e.score || "") + "</td><td class='rank-muted'>" + (e.reason || "") + "</td>";
+        var td = document.createElement("td");
+        var del = document.createElement("button");
+        del.className = "wp-btn is-mini"; del.textContent = "删";
+        del.addEventListener("click", function () {
+          entries = entries.filter(function (x) { return x !== e; });
+          renderPublished();
+        });
+        td.appendChild(del);
+        tr.appendChild(td);
+        tb.appendChild(tr);
+      });
+      t.appendChild(tb);
+      host.appendChild(t);
+      $("#export").value = exportJson();
+    }
+
+    function exportJson() {
+      return JSON.stringify({
+        updated: new Date().toISOString(),
+        note: "ZEROTHSEC 审核结果（教练审核台导出，勿手动改格式）",
+        entries: entries,
+      }, null, 2);
+    }
+
+    /* ---------- 文件接收 ---------- */
+    function addFiles(files) {
+      Array.prototype.forEach.call(files, function (f) {
+        if (!/\.(md|markdown|txt)$/i.test(f.name)) return;
+        var r = new FileReader();
+        r.onload = function () {
+          var q = parseMd(String(r.result || ""), f.name);
+          queueItems.push(q);
+          renderQueue();
+        };
+        r.readAsText(f, "utf-8");
+      });
+    }
+
+    var drop = $("#drop");
+    ["dragenter", "dragover"].forEach(function (ev) {
+      drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.add("on"); });
+    });
+    ["dragleave", "drop"].forEach(function (ev) {
+      drop.addEventListener(ev, function (e) { e.preventDefault(); drop.classList.remove("on"); });
+    });
+    drop.addEventListener("drop", function (e) { addFiles(e.dataTransfer.files); });
+    $("#picker").addEventListener("change", function () { addFiles(this.files); this.value = ""; });
+    $("#parse-paste").addEventListener("click", function () {
+      var text = $("#paste-area").value;
+      if (!text.trim()) return;
+      queueItems.push(parseMd(text, ""));
+      $("#paste-area").value = "";
+      renderQueue();
+    });
+
+    $("#copy-out").addEventListener("click", function () {
+      var b = this;
+      navigator.clipboard.writeText($("#export").value).then(function () {
+        b.textContent = "已复制 ✓"; setTimeout(function () { b.textContent = "复制 results.json"; }, 1500);
+      });
+    });
+    $("#dl-out").addEventListener("click", function () {
+      var blob = new Blob([$("#export").value], { type: "application/json" });
+      var a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = "results.json";
+      a.click();
+      setTimeout(function () { URL.revokeObjectURL(a.href); }, 800);
+    });
+
+    /* ---------- 初始化：解密题库 + 拉线上结果 ---------- */
+    window.ZSBank.loadBank().then(function (b) { bank = b; }).catch(function (e) { console.warn(e); });
+    fetch("assets/data/results.json?ts=" + Date.now(), { cache: "no-store" })
+      .then(function (r) { return r.ok ? r.json() : { entries: [] }; })
+      .then(function (d) { entries = (d.entries || []).map(function (e) { return Object.assign({}, e); }); renderPublished(); })
+      .catch(function () { renderPublished(); });
+    renderQueue();
+    renderPublished();
+  })();
+  </script>
+</body>
+</html>
