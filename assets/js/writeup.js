@@ -252,7 +252,7 @@
     main.appendChild(brief);
 
     if (ch.link) {
-      var src = el("a", "wp-muted", "题源 / 平台入口 ↗");
+      var src = el("a", "wp-btn is-mini", "去平台做题 ↗");
       src.href = ch.link;
       src.target = "_blank";
       src.rel = "noopener";
@@ -274,8 +274,8 @@
 
     var acts = el("div", "wp-task-actions");
 
-    /* flag 校验 */
-    if (!status || status.status !== "accepted") {
+    /* flag 校验（仅自造题有 flag；平台真题跳过，直接提交 Writeup） */
+    if (ch.flag && (!status || status.status !== "accepted")) {
       var fin = el("input", "wp-flag-input");
       fin.type = "text";
       fin.placeholder = "粘贴 flag 校验";
@@ -611,7 +611,7 @@
     box.appendChild(el("p", "wp-muted",
       "1. 登录（本页顶部）：GitHub 用户名 + 真实姓名 + 四条战线方向，保存在你自己的浏览器\n" +
       "2. 登录后进入「题目/提交」：只看到你注册方向的题，按批次发放（EASY → HARD），每批有截止倒计时\n" +
-      "3. 解题 → 粘贴 flag 校验\n" +
+      "3. 解题：题目全部来自 CTF² 平台 BUUCTF 真题，点「去平台做题」在 CTF² 完成并拿到 flag\n" +
       "4. 点「提交 Writeup」→ 在面板里写（或下载空模板本地写好粘贴回来）→ 生成 <姓名>-<题号>.md 下载\n" +
       "5. 把该文件发到教练邮箱 19170040127@189.cn 或答疑 QQ 群 —— 全程不需要 GitHub\n" +
       "6. 回本页看结果：通过计分上榜；打回会显示理由，修改后点「重新提交」"));

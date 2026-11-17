@@ -31,13 +31,16 @@
   └─ 拉取 results.json → 题目卡显示 通过/打回/理由，排行榜按人聚合
 ```
 
-### 题库（可无限扩充）
+### 题库（CTF² 平台真题）
 
-- `tools/gen_bank.py`：参数化模板 × 随机变体生成器。5 类别 × 3 难度（easy→medium→hard 递进），默认 287 题
-- 扩充：`python tools/gen_bank.py --scale 2`（题量翻倍），改模板/词表可无限出新题
-- 题目支持 `link` 字段挂外部题库平台（CTF2 等）题源链接；外部平台题目需构建时导入打包（浏览器 CORS 限制，运行时不能直接跨站拉题）
-- 题库经四层管线加密（zlib 压缩 → SHA256 异或流 → 置换 Base64 字母表 → 分片反转）输出 `assets/data/bank.enc.js`，flag 藏在密文里，页面运行时经 `assets/js/bank.js` 解密（含纯 JS SHA-256 回退，非安全上下文也可用）
-- 明文答案在 `tools/bank_plaintext.json`（**已被 .gitignore 排除，教练本地留档，勿提交**）
+- **题目来源：`tools/import_ctf2.py` 从 CTF² 平台（ctf2.dasctf.com，BUUCTF 练习场）拉取真实赛题**，
+  按类别（WEB/CRYPTO/MISC/REVERSE/PWN）× 难度（Easy/Medium/Hard）各取前 N，按解题人数降序（越多人解出越新手友好），
+  站内连续编号 WEB-01…，每题带「去平台做题」直达链接
+- 重新拉题：`python tools/import_ctf2.py --per-diff 20`（token 放 `tools/.ctf2_token`，已 gitignore）
+- 平台真题的 flag 在 CTF² 站内提交验证，本站不做离线 flag 校验；学生拿 flag 后按 `<姓名>-<题号>.md` 交 Writeup，教练审核计分
+- `tools/gen_bank.py` 保留为备用自造题生成器（当前未使用）
+- 题库经四层管线加密（zlib 压缩 → SHA256 异或流 → 置换 Base64 字母表 → 分片反转）输出 `assets/data/bank.enc.js`，页面运行时经 `assets/js/bank.js` 解密（含纯 JS SHA-256 回退，非安全上下文也可用）
+- 明文留档在 `tools/bank_plaintext.json`（**已被 .gitignore 排除，教练本地留档，勿提交**）
 
 ### 教练操作
 

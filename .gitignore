@@ -30,3 +30,6 @@ Thumbs.db
 
 # 题库明文答案（教练本地留档，禁止提交）
 tools/bank_plaintext.json
+
+# CTF² 平台登录 token（教练本地专用，禁止提交）
+tools/.ctf2_token
