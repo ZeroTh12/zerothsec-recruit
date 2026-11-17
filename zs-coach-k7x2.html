@@ -183,7 +183,8 @@
         files = (await listFiles()).filter(function (f) { return /\.(md|markdown|txt)$/i.test(f.name); });
       } catch (e) {
         files = [];
-        $("#list").innerHTML = '<p class="wp-muted">目录为空或不可读（' + e.message + '）。</p>';
+        var hint = hasWrite() ? "" : "（匿名读取受 GitHub 限流影响——点上方「载入令牌」粘贴一次 PAT 即可正常显示；或配置 wp-config.relay 中转）";
+        $("#list").innerHTML = '<p class="wp-muted">列表暂不可读（' + e.message + '）' + hint + '</p>';
         return;
       }
       renderList();
