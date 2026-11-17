@@ -114,7 +114,9 @@
   }
 
   /* ==========================================================================
-     星期制批次：第 N 周 = 题库池按 难度→类别→题号 排序切片
+     每日发题制：每天 0 点解锁 daily 道新题；一周为一个周期（weekly=daily*7），
+     全题池按 难度→类别→题号 顺序切片，任何一天、任何一周的题互不重复。
+     兼容旧 weekly 配置（无 daily 时按周整批发放）。
      ========================================================================== */
   function trackPool() {
     var cats = (TRACKS[profile.direction] && TRACKS[profile.direction].cats) || [];
@@ -126,20 +128,24 @@
       });
   }
 
-  function weekPlan() {
+  function planNow() {
     var cfg = (batches && batches[profile.direction]) || {};
     var startMs = cfg.start ? new Date(cfg.start).getTime() : NaN;
-    var weekly = Math.max(1, parseInt(cfg.weekly, 10) || 5);
-    if (isNaN(startMs)) return { weekly: weekly, current: 1, startMs: Date.now() };
-    var W = 7 * 86400000;
+    var daily = cfg.daily ? Math.max(1, parseInt(cfg.daily, 10)) : 0;
+    var weekly = daily ? daily * 7 : Math.max(1, parseInt(cfg.weekly, 10) || 5);
+    var DAY = 86400000;
     var now = Date.now();
-    var n = now < startMs ? 0 : Math.floor((now - startMs) / W) + 1;
-    var deadline = startMs + n * W - 1000;
-    return { weekly: weekly, current: n, startMs: startMs, deadline: deadline, W: W };
-  }
-
-  function weekSlice(pool, plan, w) {
-    return pool.slice((w - 1) * plan.weekly, w * plan.weekly);
+    var p = { daily: daily, weekly: weekly, gday: 1, week: 1, dayInWeek: 1,
+              dayEnd: now + DAY, weekDeadline: now + 7 * DAY, notStarted: false };
+    if (isNaN(startMs)) return p;
+    if (now < startMs) { p.notStarted = true; return p; }
+    var gday = Math.floor((now - startMs) / DAY) + 1;
+    p.gday = gday;
+    p.week = Math.floor((gday - 1) / 7) + 1;
+    p.dayInWeek = ((gday - 1) % 7) + 1;
+    p.dayEnd = startMs + gday * DAY - 1000;
+    p.weekDeadline = startMs + p.week * 7 * DAY - 1000;
+    return p;
   }
 
   /* ==========================================================================
@@ -351,31 +357,9 @@
     host.innerHTML = "";
 
     var pool = trackPool();
-    var plan = weekPlan();
+    var plan = planNow();
     var statusMap = myStatusMap();
     var subs = mySubmissions();
-
-    /* 顶部横幅：方向 + 本周任务 + 倒计时 */
-    var banner = el("div", "wp-auth");
-    var bTitle = el("p", "wp-kicker", "// 方向：" + TRACKS[profile.direction].label +
-      " · 星期制批次 · 每周 " + plan.weekly + " 题（易→难自动递进）");
-    banner.appendChild(bTitle);
-    if (plan.current >= 1) {
-      var cd = el("p", "wp-msg", "");
-      cd.innerHTML = "本周（第 " + plan.current + " 周）截止倒计时：<b data-deadline=\"" + plan.deadline + "\">" +
-        countdownText(plan.deadline) + "</b>";
-      banner.appendChild(cd);
-    }
-    var done = 0, total = 0;
-    if (plan.current >= 1) {
-      weekSlice(pool, plan, plan.current).forEach(function (c) {
-        total++;
-        if (statusMap[c.id] && statusMap[c.id].status === "accepted") done++;
-      });
-      banner.appendChild(el("p", "wp-muted", "本周完成 " + done + " / " + total + " 题 · 累计通过 " +
-        Object.keys(statusMap).filter(function (k) { return statusMap[k].status === "accepted"; }).length + " 题"));
-    }
-    host.appendChild(banner);
 
     function cardList(list) {
       var wrap = el("div", "wp-list");
@@ -385,37 +369,84 @@
       return wrap;
     }
 
-    /* 本周任务 */
-    if (plan.current >= 1) {
-      var cur = weekSlice(pool, plan, plan.current);
-      host.appendChild(el("p", "wp-kicker", "// 第 " + plan.current + " 周 · 本周任务 · " + cur.length + " 题"));
-      if (cur.length) host.appendChild(cardList(cur));
+    if (plan.notStarted) {
+      host.appendChild(el("p", "wp-msg", "发题将于 " + new Date((batches[profile.direction] || {}).start).toLocaleString("zh-CN") + " 开始，敬请期待。"));
+      return;
+    }
+
+    /* 顶部横幅：今天/本周 + 倒计时 */
+    var banner = el("div", "wp-auth");
+    var head1 = plan.daily
+      ? "// 方向：" + TRACKS[profile.direction].label + " · 每日发题制 · 每天 0 点解锁 " + plan.daily + " 道新题 · 本周共 " + plan.weekly + " 题（易→难，绝不重复）"
+      : "// 方向：" + TRACKS[profile.direction].label + " · 星期制批次 · 每周 " + plan.weekly + " 题（易→难自动递进）";
+    banner.appendChild(el("p", "wp-kicker", head1));
+    banner.appendChild(el("p", "wp-msg",
+      "第 " + plan.week + " 周 · 第 " + plan.dayInWeek + "/7 天 · 周期截止倒计时：<b data-deadline=\"" + plan.weekDeadline + "\">" +
+      countdownText(plan.weekDeadline) + "</b>"));
+    var weekSliceList = pool.slice((plan.week - 1) * plan.weekly, plan.week * plan.weekly);
+    var done = weekSliceList.filter(function (c) { return statusMap[c.id] && statusMap[c.id].status === "accepted"; }).length;
+    banner.appendChild(el("p", "wp-muted", "本周完成 " + done + " / " + weekSliceList.length + " 题 · 累计通过 " +
+      Object.keys(statusMap).filter(function (k) { return statusMap[k].status === "accepted"; }).length + " 题"));
+    host.appendChild(banner);
+
+    if (plan.daily) {
+      /* 每日模式：今天的新题 */
+      var today = pool.slice((plan.gday - 1) * plan.daily, plan.gday * plan.daily);
+      host.appendChild(el("p", "wp-kicker", "// 今天解锁 · " + today.length + " 题"));
+      if (today.length) host.appendChild(cardList(today));
       else host.appendChild(el("p", "wp-muted", "题库已刷完，联系教练从 CTF² 拉新题。"));
 
-      /* 下周预告（折叠） */
-      var next = weekSlice(pool, plan, plan.current + 1);
-      if (next.length) {
-        var nx = el("details", "wp-week");
-        nx.appendChild(el("summary", null, "下周预告 · " + next.length + " 题：" + next.map(function (c) { return c.id; }).join("、")));
-        nx.appendChild(cardList(next));
-        host.appendChild(nx);
+      /* 本周早些时候（已解锁，折叠） */
+      var earlier = pool.slice((plan.week - 1) * plan.weekly, (plan.gday - 1) * plan.daily);
+      if (earlier.length) {
+        var det = el("details", "wp-week");
+        det.appendChild(el("summary", null, "本周早些时候已解锁 · " + earlier.length + " 题：" +
+          earlier.map(function (c) {
+            var s = statusMap[c.id];
+            return c.id + (s ? (s.status === "accepted" ? "✓" : "✗") : "·");
+          }).join("、")));
+        det.appendChild(cardList(earlier));
+        host.appendChild(det);
       }
+
+      /* 本周剩余天数（锁定预告） */
+      var remainDays = 7 - plan.dayInWeek;
+      var remainCount = Math.min(remainDays * plan.daily,
+        Math.max(0, plan.week * plan.weekly - plan.gday * plan.daily));
+      if (remainCount > 0) {
+        host.appendChild(el("p", "wp-muted", "🔒 明天 0 点解锁 " + plan.daily + " 道新题；本周还剩 " + remainCount + " 题待发。"));
+      } else if (plan.gday * plan.daily < plan.week * plan.weekly) {
+        host.appendChild(el("p", "wp-muted", "🔒 本周题目已全部解锁，周日 23:59 截止；下周一自动换新题。"));
+      }
+    } else {
+      /* 兼容周模式：本周整批 */
+      host.appendChild(el("p", "wp-kicker", "// 第 " + plan.week + " 周 · 本周任务 · " + weekSliceList.length + " 题"));
+      if (weekSliceList.length) host.appendChild(cardList(weekSliceList));
+      else host.appendChild(el("p", "wp-muted", "题库已刷完，联系教练从 CTF² 拉新题。"));
+    }
+
+    /* 下周预告（折叠） */
+    var next = pool.slice(plan.week * plan.weekly, plan.week * plan.weekly + plan.weekly);
+    if (next.length) {
+      var nx = el("details", "wp-week");
+      nx.appendChild(el("summary", null, "下周预告 · " + next.length + " 题：" + next.map(function (c) { return c.id; }).join("、")));
+      host.appendChild(nx);
     }
 
     /* 历史周（折叠，最近在前，最多 6 周） */
     var hist = [];
-    for (var w = plan.current - 1; w >= 1 && hist.length < 6; w--) hist.push(w);
+    for (var w = plan.week - 1; w >= 1 && hist.length < 6; w--) hist.push(w);
     hist.forEach(function (w) {
-      var list = weekSlice(pool, plan, w);
+      var list = pool.slice((w - 1) * plan.weekly, w * plan.weekly);
       if (!list.length) return;
-      var det = el("details", "wp-week");
-      det.appendChild(el("summary", null, "第 " + w + " 周（已截止）· " + list.length + " 题：" +
+      var det2 = el("details", "wp-week");
+      det2.appendChild(el("summary", null, "第 " + w + " 周（已截止）· " + list.length + " 题：" +
         list.map(function (c) {
           var s = statusMap[c.id];
           return c.id + (s ? (s.status === "accepted" ? "✓" : "✗") : "·");
         }).join("、")));
-      det.appendChild(cardList(list));
-      host.appendChild(det);
+      det2.appendChild(cardList(list));
+      host.appendChild(det2);
     });
 
     countdownTimer = setInterval(function () {
@@ -512,8 +543,8 @@
     var box = el("div", "wp-auth");
     box.appendChild(el("h3", "wp-task-title", "队员 · 每周流程"));
     box.appendChild(el("p", "wp-muted",
-      "1. 登录（GitHub 用户名 + 真实姓名 + 方向）——方向决定题目池，每周自动换一批\n" +
-      "2. 看「本周任务」：每周 " + ((weekPlan().weekly) || 5) + " 题，周日 23:59 截止，倒计时在面板顶部\n" +
+      "1. 登录（GitHub 用户名 + 真实姓名 + 方向）——方向决定题目池，互不重复\n" +
+      "2. 每日发题制：**每天 0 点解锁 3 道新题**，一周为一个周期（共 21 题），周日 23:59 截止，下周自动换新题；题目按 易→难 排列，绝不重题\n" +
       "3. 点题目卡「去平台做题 ↗」在 CTF² 平台解题拿 flag（需注册 CTF²/MYDAS 账号）\n" +
       "4. 写 Writeup：点「下载空模板」→ 按模板写 → 保存为 <姓名>-<题号>.md\n" +
       "5. 题卡内点「上传 .md 提交」存档到本站 + 把同一个文件发到招新答疑 QQ 群（两步都要）\n" +
@@ -528,7 +559,7 @@
       "2. 打开教练审核页（站内无链接，地址仅教练知晓），把文件整批拖入\n" +
       "3. 逐题看全文，可把内容粘贴给 AI 辅助评审拿分数建议 → 自己定夺\n" +
       "4. 录入 通过(分数)/打回(理由) → 复制导出的 results.json → GitHub 网页端覆盖 assets/data/results.json 提交\n" +
-      "5. 学生端自动显示结果与排行榜；发题是星期制自动的，改 batches.json 的 weekly 即可调每周题量"));
+      "5. 学生端自动显示结果与排行榜；发题是每日自动的，改 batches.json 的 daily 即可调每天题量（一周 = daily×7 题，下周自动换下一段，绝不重题）"));
     host.appendChild(box2);
 
     var box3 = el("div", "wp-auth");
