@@ -1,5 +1,5 @@
 {
-  "updated": "2026-11-17T15:23:29.351Z",
+  "updated": "2026-11-17T15:24:34.209Z",
   "students": [
     {
       "github": "alice",
@@ -18,6 +18,12 @@
       "name": "Eve",
       "direction": "websec",
       "at": "2026-11-17T15:23:29.351Z"
+    },
+    {
+      "github": "ZeroTh12",
+      "name": "零号",
+      "direction": "websec",
+      "at": "2026-11-17T15:24:34.209Z"
     }
   ]
 }
